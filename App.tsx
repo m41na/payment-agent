@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import Constants from 'expo-constants';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { PaymentProvider } from './src/contexts/PaymentContext';
 import AuthScreen from './src/screens/AuthScreen';
@@ -73,10 +74,10 @@ const AppNavigator = () => {
 };
 
 export default function App() {
-  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const stripePublishableKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
   return (
-    <StripeProvider publishableKey={stripePublishableKey}>
+    <StripeProvider publishableKey={stripePublishableKey!}>
       <PaperProvider theme={theme}>
         <AuthProvider>
           <PaymentProvider>
