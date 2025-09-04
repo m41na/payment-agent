@@ -16,16 +16,17 @@ A secure, production-ready React Native payment processing app built with Expo, 
 ## 🏗️ Architecture
 
 - **Frontend**: React Native Expo with TypeScript
-- **Backend**: Supabase (Database, Auth, Real-time, Storage)
-- **Payments**: Stripe SDK with secure server-side processing
+- **Backend**: Supabase Cloud (Database, Auth, Real-time, Edge Functions)
+- **Payments**: Stripe SDK with secure server-side processing via Edge Functions
 - **State Management**: React Context with real-time subscriptions
 - **UI**: Material Design with React Native Paper
 
 ## 📋 Prerequisites
 
 - Node.js 18+
-- Docker & Docker Compose
 - Expo CLI (`npm install -g @expo/cli`)
+- Supabase CLI (`npm install -g supabase`)
+- Supabase Cloud Account
 - Stripe Account (test mode)
 - Git
 
@@ -39,7 +40,39 @@ cd payment-agent
 npm install
 ```
 
-### 2. Environment Configuration
+### 2. Supabase Setup
+
+1. Create a new project at [Supabase Cloud](https://supabase.com)
+2. Get your project URL and anon key from Settings > API
+3. Install Supabase CLI: `npm install -g supabase`
+4. Login to Supabase: `supabase login`
+5. Link your project: `supabase link --project-ref <your-project-ref>`
+
+### 3. Database Setup
+
+Run the database schema:
+
+```bash
+# Apply database schema
+supabase db push
+
+# Or manually run the schema from database/schema.sql in your Supabase SQL editor
+```
+
+### 4. Deploy Edge Functions
+
+```bash
+# Deploy all Edge Functions
+supabase functions deploy
+
+# Or deploy individually
+supabase functions deploy pg_create-payment-intent
+supabase functions deploy pg_create-setup-intent
+supabase functions deploy pg_detach-payment-method
+supabase functions deploy pg_stripe-webhook
+```
+
+### 5. Environment Configuration
 
 Copy the example environment file and configure:
 
@@ -47,32 +80,29 @@ Copy the example environment file and configure:
 cp .env.example .env
 ```
 
-Update `.env` with your values:
-- Generate secure passwords and JWT secrets
-- Add your Stripe publishable key to `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+Update `.env` with your Supabase and Stripe values:
 
-### 3. Start Supabase Services
-
-```bash
-# Start all Supabase services
-docker-compose up -d
-
-# Check services are running
-docker-compose ps
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your-stripe-key
+STRIPE_SECRET_KEY=sk_test_your-stripe-secret
 ```
 
-**Supabase will be available at:**
-- Studio: http://localhost:54323
-- API: http://localhost:54321
-- Database: localhost:5432
+### 6. Configure Stripe Webhooks
 
-### 4. Configure Stripe
+1. In your Stripe Dashboard, go to Developers > Webhooks
+2. Add endpoint: `https://your-project.supabase.co/functions/v1/pg_stripe-webhook`
+3. Select events: `payment_method.attached`, `payment_method.detached`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+4. Copy the webhook signing secret to your Edge Function secrets:
 
-1. Get your Stripe keys from [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys)
-2. Update `.env` with your publishable key
-3. Set up webhook endpoints (see Backend Setup section)
+```bash
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+supabase secrets set STRIPE_SECRET_KEY=sk_test_your-stripe-secret
+```
 
-### 5. Start the App
+### 7. Start the App
 
 ```bash
 # Start Expo development server
@@ -83,93 +113,28 @@ npm run ios
 npm run android
 ```
 
-## 🔧 Backend API Setup
+## 🔧 Edge Functions
 
-You'll need to create a backend API to handle Stripe operations securely. Here are the required endpoints:
+The app uses Supabase Edge Functions for secure server-side operations:
 
-### Required Endpoints
+### Available Functions
 
-1. **POST /create-customer** - Create Stripe customer
-2. **POST /create-setup-intent** - Setup payment methods
-3. **POST /create-payment-intent** - Process payments
-4. **POST /detach-payment-method** - Remove payment methods
-5. **POST /sync-payment-methods** - Sync with Stripe
-6. **POST /webhook** - Handle Stripe webhooks
+1. **pg_create-payment-intent** - Creates Stripe payment intents
+2. **pg_create-setup-intent** - Creates setup intents for saving payment methods
+3. **pg_detach-payment-method** - Detaches payment methods from Stripe
+4. **pg_stripe-webhook** - Handles Stripe webhook events
 
-### Example Backend Structure (Node.js/Express)
+### Function Endpoints
 
-```javascript
-// Example endpoint structure
-app.post('/create-customer', authenticateUser, async (req, res) => {
-  const { email, name } = req.body;
-  const customer = await stripe.customers.create({ email, name });
-  res.json({ customer_id: customer.id });
-});
-
-app.post('/create-payment-intent', authenticateUser, async (req, res) => {
-  const { amount, currency, customer_id, payment_method_id } = req.body;
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount,
-    currency,
-    customer: customer_id,
-    payment_method: payment_method_id,
-    confirmation_method: 'manual',
-    confirm: true,
-  });
-  res.json({ 
-    client_secret: paymentIntent.client_secret,
-    payment_intent_id: paymentIntent.id 
-  });
-});
-```
-
-## 📱 Usage Guide
-
-### User Registration & Authentication
-
-1. Open the app
-2. Tap "Sign Up" and enter email/password
-3. Choose user type (customer/agent/buyer)
-4. Profile is automatically created
-
-### Adding Payment Methods
-
-1. Navigate to "Payment Methods"
-2. Tap "Add Payment Method"
-3. Enter card details in Stripe's secure form
-4. Method is saved and can be set as default
-
-### Making Payments
-
-**Express Checkout:**
-- Enter amount on home screen
-- Tap "Pay Now" - uses default payment method
-
-**Selective Checkout:**
-- Choose "Select Payment Method"
-- Pick from saved methods
-- Confirm payment
-
-**One-Time Checkout:**
-- Choose "One-Time Payment"
-- Enter new card details
-- Payment processed without saving
-
-## 🔒 Security Features
-
-- **Row Level Security**: Database access restricted to user's own data
-- **Secure Storage**: Sensitive tokens stored in Expo SecureStore
-- **Stripe Compliance**: All payment data handled by Stripe's secure components
-- **JWT Authentication**: Supabase handles secure session management
-- **Environment Variables**: Sensitive keys never hardcoded
+All functions are available at: `https://your-project.supabase.co/functions/v1/function-name`
 
 ## 📊 Database Schema
 
 ### Tables
 
-- **user_profiles**: User metadata and Stripe customer IDs
-- **payment_methods**: Payment method metadata (not sensitive data)
-- **payments**: Transaction history and status
+- **pg_profiles**: User metadata and Stripe customer IDs
+- **pg_payment_methods**: Payment method metadata (not sensitive data)
+- **pg_transactions**: Transaction history and status
 
 ### Key Features
 
@@ -177,6 +142,7 @@ app.post('/create-payment-intent', authenticateUser, async (req, res) => {
 - Single default payment method enforcement
 - Real-time updates via Supabase subscriptions
 - Comprehensive indexing for performance
+- Row Level Security (RLS) policies
 
 ## 🧪 Testing
 
@@ -186,6 +152,9 @@ npm test
 
 # Run linting
 npm run lint
+
+# Test Edge Functions locally
+supabase functions serve
 ```
 
 ### Test Cards (Stripe Test Mode)
@@ -207,29 +176,39 @@ expo build:ios
 eas build --platform all
 ```
 
-### Backend Deployment
+### Edge Functions Deployment
 
-Deploy your backend API to:
-- Vercel/Netlify (serverless)
-- Railway/Render (containers)
-- AWS/GCP/Azure (cloud platforms)
+```bash
+# Deploy all functions
+supabase functions deploy
+
+# Deploy with environment variables
+supabase secrets set STRIPE_SECRET_KEY=sk_live_your-live-key
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_your-live-webhook-secret
+```
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
 1. **Supabase Connection Failed**
-   - Check Docker services: `docker-compose ps`
-   - Verify environment variables in `.env`
+   - Check your project URL and anon key in `.env`
+   - Verify your Supabase project is active
 
-2. **Stripe Payment Fails**
-   - Ensure backend API is running
-   - Check Stripe keys are correct
-   - Verify webhook endpoints
+2. **Edge Function Errors**
+   - Check function logs: `supabase functions logs function-name`
+   - Verify environment secrets are set correctly
+   - Ensure functions are deployed: `supabase functions list`
 
-3. **Real-time Updates Not Working**
-   - Check Supabase realtime is enabled
+3. **Stripe Payment Fails**
+   - Check Edge Function logs for detailed errors
+   - Verify Stripe keys are correct and for the right environment
+   - Ensure webhook endpoints are configured
+
+4. **Real-time Updates Not Working**
+   - Check that realtime is enabled in your Supabase project
    - Verify RLS policies allow subscriptions
+   - Check table publications: `SELECT * FROM pg_publication_tables;`
 
 ### Debug Mode
 
@@ -240,6 +219,16 @@ Enable debug logging:
 if (__DEV__) {
   console.log('Debug mode enabled');
 }
+```
+
+### Viewing Edge Function Logs
+
+```bash
+# View real-time logs
+supabase functions logs pg_create-payment-intent --follow
+
+# View specific function logs
+supabase functions logs pg_stripe-webhook
 ```
 
 ## 📚 Additional Resources
