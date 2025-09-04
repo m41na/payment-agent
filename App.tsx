@@ -10,7 +10,6 @@ import { PaymentProvider } from './src/contexts/PaymentContext';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PaymentMethodsScreen from './src/screens/PaymentMethodsScreen';
-import CheckoutScreen from './src/screens/CheckoutScreen';
 
 const Stack = createStackNavigator();
 
@@ -55,11 +54,6 @@ const AppNavigator = () => {
             name="PaymentMethods" 
             component={PaymentMethodsScreen}
             options={{ title: 'Payment Methods' }}
-          />
-          <Stack.Screen 
-            name="Checkout" 
-            component={CheckoutScreen}
-            options={{ title: 'Checkout' }}
           />
         </>
       ) : (

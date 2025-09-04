@@ -56,6 +56,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingPayments, setProcessingPayments] = useState<Set<string>>(new Set());
 
   // Fetch payment methods from pg_payment_methods table
   const fetchPaymentMethods = async () => {

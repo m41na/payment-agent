@@ -118,14 +118,6 @@ const HomeScreen = ({ navigation }: any) => {
           </Button>
           
           <Button
-            mode="contained"
-            onPress={() => navigation.navigate('Checkout')}
-            style={styles.button}
-          >
-            Make Payment
-          </Button>
-          
-          <Button
             mode="outlined"
             onPress={signOut}
             style={styles.button}

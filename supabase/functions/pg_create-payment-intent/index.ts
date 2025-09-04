@@ -44,114 +44,133 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id)
 
-    const { amount, currency = 'usd', description, paymentMethodId } = await req.json()
+    try {
+      // Parse request body
+      const { amount, currency = 'usd', description, paymentMethodId, idempotencyKey } = await req.json()
 
-    console.log('Payment intent request:', { amount, currency, description, paymentMethodId })
+      console.log('Request data:', { amount, currency, description, paymentMethodId, idempotencyKey })
 
-    // Check if Stripe secret key is available
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
-    if (!stripeSecretKey) {
-      console.error('STRIPE_SECRET_KEY environment variable not set')
-      throw new Error('Stripe configuration missing')
-    }
+      if (!amount || amount < 50) {
+        throw new Error('Amount must be at least $0.50 usd')
+      }
 
-    console.log('Stripe key available:', stripeSecretKey.substring(0, 10) + '...')
+      console.log('Payment intent request:', { amount, currency, description, paymentMethodId })
 
-    // Initialize Stripe
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2023-10-16',
-    })
+      // Check if Stripe secret key is available
+      const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+      if (!stripeSecretKey) {
+        console.error('STRIPE_SECRET_KEY environment variable not set')
+        throw new Error('Stripe configuration missing')
+      }
 
-    console.log('Stripe initialized, fetching customer profile...')
+      console.log('Stripe key available:', stripeSecretKey.substring(0, 10) + '...')
 
-    // Get or create Stripe customer
-    let { data: profile, error: profileError } = await supabaseClient
-      .from('pg_profiles')
-      .select('stripe_customer_id')
-      .eq('id', user.id)
-      .single()
+      // Initialize Stripe
+      const stripe = new Stripe(stripeSecretKey, {
+        apiVersion: '2023-10-16',
+      })
 
-    console.log('Profile query result:', { profile, profileError })
+      console.log('Stripe initialized, fetching customer profile...')
 
-    let customerId = profile?.stripe_customer_id
+      // Get or create Stripe customer
+      let { data: profile, error: profileError } = await supabaseClient
+        .from('pg_profiles')
+        .select('stripe_customer_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!customerId) {
-      console.log('No customer ID found, creating Stripe customer...')
-      // Create Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
+      console.log('Profile query result:', { profile, profileError })
+
+      let customerId = profile?.stripe_customer_id
+
+      if (!customerId) {
+        console.log('No customer ID found, creating Stripe customer...')
+        // Create Stripe customer
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: {
+            supabase_user_id: user.id,
+          },
+        })
+
+        customerId = customer.id
+        console.log('Created Stripe customer:', customerId)
+
+        // Update profile with Stripe customer ID
+        const { error: updateError } = await supabaseClient
+          .from('pg_profiles')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', user.id)
+        
+        if (updateError) {
+          console.error('Failed to update profile:', updateError)
+        } else {
+          console.log('Updated profile with customer ID')
+        }
+      } else {
+        console.log('Using existing customer ID:', customerId)
+      }
+
+      console.log('Creating payment intent...')
+
+      // Create payment intent
+      const paymentIntentData: any = {
+        amount: amount, // Amount is already in cents from client
+        currency,
+        customer: customerId,
         metadata: {
           supabase_user_id: user.id,
         },
-      })
+        idempotency_key: idempotencyKey,
+      }
 
-      customerId = customer.id
-      console.log('Created Stripe customer:', customerId)
+      if (description) {
+        paymentIntentData.description = description
+      }
 
-      // Update profile with Stripe customer ID
-      const { error: updateError } = await supabaseClient
-        .from('pg_profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', user.id)
-      
-      if (updateError) {
-        console.error('Failed to update profile:', updateError)
+      if (paymentMethodId) {
+        // Express checkout with existing payment method
+        paymentIntentData.payment_method = paymentMethodId
+        paymentIntentData.confirmation_method = 'manual'
+        paymentIntentData.confirm = true
+        paymentIntentData.payment_method_types = ['card']
       } else {
-        console.log('Updated profile with customer ID')
+        // Regular payment intent for payment sheet
+        paymentIntentData.automatic_payment_methods = {
+          enabled: true,
+          allow_redirects: 'never'
+        }
       }
-    } else {
-      console.log('Using existing customer ID:', customerId)
-    }
 
-    console.log('Creating payment intent...')
+      console.log('Payment intent data:', JSON.stringify(paymentIntentData, null, 2))
 
-    // Create payment intent
-    const paymentIntentData: any = {
-      amount: amount, // Amount is already in cents from client
-      currency,
-      customer: customerId,
-      metadata: {
-        supabase_user_id: user.id,
-      },
-    }
+      try {
+        const paymentIntent = await stripe.paymentIntents.create(paymentIntentData)
+        console.log('Payment intent created successfully:', paymentIntent.id)
 
-    if (description) {
-      paymentIntentData.description = description
-    }
-
-    if (paymentMethodId) {
-      // Express checkout with existing payment method
-      paymentIntentData.payment_method = paymentMethodId
-      paymentIntentData.confirmation_method = 'manual'
-      paymentIntentData.confirm = true
-      paymentIntentData.payment_method_types = ['card']
-    } else {
-      // Regular payment intent for payment sheet
-      paymentIntentData.automatic_payment_methods = {
-        enabled: true,
-        allow_redirects: 'never'
+        return new Response(
+          JSON.stringify({
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        )
+      } catch (stripeError) {
+        console.error('Stripe payment intent creation failed:', stripeError)
+        throw stripeError
       }
-    }
-
-    console.log('Payment intent data:', JSON.stringify(paymentIntentData, null, 2))
-
-    try {
-      const paymentIntent = await stripe.paymentIntents.create(paymentIntentData)
-      console.log('Payment intent created successfully:', paymentIntent.id)
-
+    } catch (error) {
+      console.error('Request parsing error:', error)
       return new Response(
-        JSON.stringify({
-          clientSecret: paymentIntent.client_secret,
-          paymentIntentId: paymentIntent.id,
-        }),
+        JSON.stringify({ error: error.message }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 400,
         }
       )
-    } catch (stripeError) {
-      console.error('Stripe payment intent creation failed:', stripeError)
-      throw stripeError
     }
   } catch (error) {
     console.error('Function error:', error)
