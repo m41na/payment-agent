@@ -38,6 +38,7 @@ interface PaymentContextType {
   // Payment processing
   processPayment: (amount: number, description?: string, paymentMethodId?: string) => Promise<string>;
   expressCheckout: (amount: number, description?: string) => Promise<string>;
+  oneTimePayment: (amount: number, description?: string) => Promise<string>;
   
   // Data fetching
   fetchPaymentMethods: () => Promise<void>;
@@ -330,6 +331,82 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // One-time payment using payment sheet (no saved payment method)
+  const oneTimePayment = async (amount: number, description?: string): Promise<string> => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      setLoading(true);
+      
+      console.log('Starting one-time payment...', { amount, description });
+      
+      // Create payment intent without paymentMethodId (triggers payment sheet flow)
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/pg_create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({ amount, description }),
+      });
+
+      console.log('Payment intent response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Payment intent failed:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        throw new Error(errorData.error || 'Failed to create payment intent');
+      }
+
+      const { clientSecret, paymentIntentId } = await response.json();
+      console.log('Payment intent created for one-time payment:', paymentIntentId);
+      
+      // Initialize payment sheet
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'Payment Agent',
+        paymentIntentClientSecret: clientSecret,
+        allowsDelayedPaymentMethods: false,
+        returnURL: 'payment-agent://payment-return',
+      });
+
+      if (initError) {
+        console.error('Payment sheet initialization failed:', initError);
+        throw new Error(`Payment sheet setup failed: ${initError.message}`);
+      }
+
+      console.log('Payment sheet initialized, presenting to user...');
+
+      // Present payment sheet
+      const { error: presentError } = await presentPaymentSheet();
+
+      if (presentError) {
+        console.error('Payment sheet presentation failed:', presentError);
+        throw new Error(`Payment cancelled or failed: ${presentError.message}`);
+      }
+
+      console.log('One-time payment completed successfully');
+      
+      // Refresh transactions to show the new payment
+      await fetchTransactions();
+      
+      return paymentIntentId;
+      
+    } catch (err) {
+      console.error('oneTimePayment error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'One-time payment failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial data fetch
   useEffect(() => {
     if (user) {
@@ -398,6 +475,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDefaultPaymentMethod,
     processPayment,
     expressCheckout,
+    oneTimePayment,
     fetchPaymentMethods,
     fetchTransactions,
   };

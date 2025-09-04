@@ -6,7 +6,7 @@ import { usePayment } from '../contexts/PaymentContext';
 
 const HomeScreen = ({ navigation }: any) => {
   const { signOut } = useAuth();
-  const { expressCheckout, loading } = usePayment();
+  const { expressCheckout, oneTimePayment, loading } = usePayment();
   const [amount, setAmount] = useState('10.00');
 
   const handleExpressCheckout = async () => {
@@ -18,6 +18,21 @@ const HomeScreen = ({ navigation }: any) => {
       }
 
       const paymentIntentId = await expressCheckout(amountCents, 'Express checkout payment');
+      Alert.alert('Success', `Payment completed! Payment Intent: ${paymentIntentId}`);
+    } catch (error) {
+      Alert.alert('Payment Failed', error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
+
+  const handleOneTimePayment = async () => {
+    try {
+      const amountCents = Math.round(parseFloat(amount) * 100);
+      if (isNaN(amountCents) || amountCents <= 0) {
+        Alert.alert('Error', 'Please enter a valid amount');
+        return;
+      }
+
+      const paymentIntentId = await oneTimePayment(amountCents, 'One-time payment');
       Alert.alert('Success', `Payment completed! Payment Intent: ${paymentIntentId}`);
     } catch (error) {
       Alert.alert('Payment Failed', error instanceof Error ? error.message : 'Unknown error');
@@ -52,6 +67,16 @@ const HomeScreen = ({ navigation }: any) => {
             style={[styles.button, styles.expressButton]}
           >
             Express Checkout ${amount}
+          </Button>
+          
+          <Button
+            mode="contained"
+            onPress={handleOneTimePayment}
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
+          >
+            One-Time Payment ${amount}
           </Button>
           
           <Button

@@ -110,7 +110,6 @@ serve(async (req) => {
       amount: amount, // Amount is already in cents from client
       currency,
       customer: customerId,
-      payment_method_types: ['card'],
       metadata: {
         supabase_user_id: user.id,
       },
@@ -125,6 +124,7 @@ serve(async (req) => {
       paymentIntentData.payment_method = paymentMethodId
       paymentIntentData.confirmation_method = 'manual'
       paymentIntentData.confirm = true
+      paymentIntentData.payment_method_types = ['card']
     } else {
       // Regular payment intent for payment sheet
       paymentIntentData.automatic_payment_methods = {

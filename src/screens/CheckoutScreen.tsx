@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
-  const { paymentMethods, processPayment, loading } = usePayment();
+  const { paymentMethods, processPayment, oneTimePayment, loading } = usePayment();
   
   const [paymentFlow, setPaymentFlow] = useState<'express' | 'selective' | 'one-time'>('express');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
@@ -49,7 +49,9 @@ const CheckoutScreen = () => {
           break;
       }
 
-      const paymentIntentId = await processPayment(paymentAmount, description, paymentMethodId);
+      const paymentIntentId = paymentFlow === 'one-time' 
+        ? await oneTimePayment(paymentAmount * 100, description) 
+        : await processPayment(paymentAmount, description, paymentMethodId);
       
       Alert.alert(
         'Payment Successful!',
