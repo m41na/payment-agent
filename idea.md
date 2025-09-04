@@ -11,201 +11,32 @@ For this app, since there is no shopping cart involved, it will expect a payment
 
 ## Complete Architecture Plan
 
-### __Phase 1: Project Setup & Infrastructure__
+Extend this experiment to include onboarding merchants to Stripe Connect. This would imply accomodating some core requirements for enhancement.
 
-1. __React Native Expo Setup__
+1. make a distinction between types of users to idenfity merchants (sellers) from non-merchants (buyers) or even app admins + support staff
+2. make a distinction between checkout transactions for order history summary (buyer) and transaction history summary (seller)
+3. add a new feature to accomodate subscription model, so that merchants can subscribe to a kind of merchant plan to which features can then be attached (to differentiate between feature tiers)
+4. create and expose Stripe price products as the basis for building subscription plans
+5. Expose a Stripe onboarding pathway which will require purchasing a subscription before getting access.
 
-   - Initialize Expo project with TypeScript
-   - Configure Material UI (React Native Paper for Material Design)
-   - Set up navigation structure (React Navigation)
-   - Configure environment variables for different stages
+These requirements clarly reveala workflow here which can be at different stages before a user finally becomes a merchant. 
 
-2. __Supabase Docker Setup__
+1. Sign up
+2. Add payment methos
+3. Choose subscription plan 
+4. Purchase plan
+5. Redirect to onboard on Stripe Connnect
+6. Rsume onboarding if interrupted for any reason
+7. Redicrect back to app on successsful onboarding
+8. Provision a storefront for newly onboarded merchant 
 
-   - Docker Compose configuration for local Supabase
-   - Database schema design
-   - Authentication configuration (email/password + Google OAuth)
-   - Row Level Security (RLS) policies
+## Additional notes
 
-3. __Stripe Integration Setup__
+My response
+1. I want to have an Stripe Connect onboarding platform which is independent of any marketplace products or services, but the purpose is to be used directly by any such marletplace an an add-on or extension
+2. You nailed all the users - buyers, sellers, admins,  and support (customer care)
+3. Again you nailed it. It's commission based in the sense that the platforms earns a tiny percentage fron transcations made, which is handled by Stripe. It is subscription based since platform merchants need to purchase a plan to have access to merchant features. It is free for buyers to use, buy merchant access is a premium feature. I'm thinking of three price plans - $99.99/year, $9.99/month and $4.99/daily-access. All three plans have fature parity. There may be previum features later on like analytics and promotion
+4. you nailed it, so I will not add/remove anything from that
+5. This is my addition. I'm envisoning a tabbed app with a profile tab (user details + saved payment methods, storefront preferences -> logom name, colors), storefront tab (seller inventiry, transaction history), checkout tab (shopping cart, order history), listing (openview maps with vendor location based on proximity buyer geolocation, table view of products sorted by proximity to seller geolocation)
 
-   - Stripe SDK integration
-   - Webhook endpoint configuration
-   - Environment setup for test/live keys
-
-### __Phase 2: Database Schema Design__
-
-__Core Tables:__
-
-```sql
--- Users table (auto-created by Supabase Auth)
--- Additional user profile data
-user_profiles (
-  id (references auth.users),
-  stripe_customer_id,
-  default_payment_method_id,
-  user_type (customer/agent/buyer),
-  created_at,
-  updated_at
-)
-
--- Payment methods (metadata only, actual data in Stripe)
-payment_methods (
-  id,
-  user_id,
-  stripe_payment_method_id,
-  type (card/bank_account),
-  last_four,
-  expire_month,
-  expire_year,
-  brand,
-  is_default,
-  created_at
-)
-
--- Payment transactions
-payments (
-  id,
-  user_id,
-  stripe_payment_intent_id,
-  amount,
-  currency,
-  status,
-  payment_method_used,
-  created_at
-)
-```
-
-### __Phase 3: Authentication & User Management__
-
-1. __Supabase Auth Integration__
-
-   - Email/password authentication
-   - Google OAuth integration
-   - User profile creation trigger (on auth.users insert)
-   - Session management
-
-2. __User Profile Management__
-
-   - Profile creation/update screens
-   - Lazy Stripe customer creation
-   - Profile data synchronization
-
-### __Phase 4: Payment Method Management__
-
-1. __Stripe Setup Methods Integration__
-
-   - Add payment method flow using Stripe's SetupIntent
-   - Payment method listing and display
-   - Set default payment method
-   - Delete payment method functionality
-
-2. __UI Components__
-
-   - Payment method cards with Material Design
-   - Add payment method modal
-   - Payment method selection interface
-
-### __Phase 5: Checkout Flows__
-
-1. __Express Checkout__
-
-   - One-tap payment with default method
-   - Amount input/selection interface
-   - Payment confirmation
-
-2. __Select Payment Method Checkout__
-
-   - Payment method selection screen
-   - Payment processing with selected method
-
-3. __One-time Payment Checkout__
-
-   - Guest-like checkout flow
-   - Stripe Payment Element integration
-   - No payment method saving
-
-### __Phase 6: Payment Processing__
-
-1. __Stripe Payment Intents__
-
-   - Server-side payment intent creation
-   - Client-side payment confirmation
-   - Webhook handling for payment status updates
-
-2. __Amount Handling__
-
-   - Fixed amount configuration
-   - External API integration for dynamic amounts
-   - User input validation for custom amounts
-
-### __Phase 7: Real-time Features & Polish__
-
-1. __Supabase Realtime__
-
-   - Real-time payment status updates
-   - Live payment method synchronization
-
-2. __Error Handling & UX__
-
-   - Comprehensive error handling
-   - Loading states and animations
-   - Success/failure feedback
-
-### __Key Technical Decisions:__
-
-1. __Architecture Pattern__: Clean Architecture with separation of concerns
-2. __State Management__: React Context + Supabase realtime for server state
-3. __Security__: All sensitive operations server-side, RLS policies, Stripe compliance
-4. __Testing__: Unit tests for business logic, integration tests for payment flows
-
-### __Compliance & Security:__
-
-- Never store sensitive payment data locally
-- Use Stripe's secure components exclusively
-- Implement proper PCI compliance practices
-- Secure API endpoints with Supabase RLS
-- Environment-based configuration management
-
-## Revised Architecture - Minimal Tech Stack
-
-__Core Technologies:__
-
-- __React Native Expo__ (TypeScript)
-- __React Native Paper__ (Material Design)
-- __Supabase Client__ (database, auth, realtime, storage)
-- __Stripe React Native SDK__ (payments only)
-- __React Context__ (global state management)
-- __React Navigation__ (navigation)
-
-__State Management Strategy:__
-
-1. __AuthContext__: User authentication state, profile data
-2. __PaymentContext__: Payment methods, Stripe customer data
-3. __Supabase Realtime__: Live updates for payment methods and transaction status
-4. __Local useState__: Component-level state only
-
-__Key Benefits of This Approach:__
-
-- __Minimal Dependencies__: Only essential libraries
-- __Direct Control__: No abstraction layers hiding functionality
-- __Real-time by Default__: Supabase realtime handles live updates naturally
-- __Predictable State Flow__: Clear data flow through contexts
-- __Easy Debugging__: Fewer layers to troubleshoot
-
-__Context Structure:__
-
-```typescript
-// AuthContext: User session, profile, Stripe customer
-// PaymentContext: Payment methods, default method, transactions
-// Both contexts subscribe to Supabase realtime channels
-```
-
-__Data Flow:__
-
-1. User actions → Context actions
-2. Context actions → Supabase API calls
-3. Supabase realtime → Context updates
-4. Context updates → UI re-renders
-
-This gives you complete control over your data flow while leveraging Supabase's powerful real-time capabilities. No unnecessary abstractions, just clean, predictable state management.
+The merchane features should be gated behind a subscription wall, and the app should be behind a registration wall
