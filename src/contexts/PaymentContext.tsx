@@ -37,6 +37,7 @@ interface PaymentContextType {
   
   // Payment processing
   processPayment: (amount: number, description?: string, paymentMethodId?: string) => Promise<string>;
+  expressCheckout: (amount: number, description?: string) => Promise<string>;
   
   // Data fetching
   fetchPaymentMethods: () => Promise<void>;
@@ -47,7 +48,7 @@ const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
 
 export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { initPaymentSheet, presentPaymentSheet, createPaymentMethod } = useStripe();
+  const { initPaymentSheet, presentPaymentSheet, createPaymentMethod, confirmPaymentIntent } = useStripe();
   
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -243,6 +244,8 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       
+      console.log('Creating payment intent...', { amount, description, paymentMethodId });
+      
       // Create payment intent via Supabase Edge Function
       const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/pg_create-payment-intent`, {
         method: 'POST',
@@ -250,49 +253,80 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
-        body: JSON.stringify({
-          amount,
-          currency: 'usd',
-          description,
-          paymentMethodId,
-        }),
+        body: JSON.stringify({ amount, description, paymentMethodId }),
       });
 
-      const { clientSecret, paymentIntentId } = await response.json();
+      console.log('Payment intent response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Payment intent failed:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        throw new Error(errorData.error || 'Failed to create payment intent');
+      }
+
+      const responseData = await response.json();
+      console.log('Payment intent response data:', responseData);
       
-      // Initialize payment sheet
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Payment Agent',
-        paymentIntentClientSecret: clientSecret,
-      });
+      const { clientSecret, paymentIntentId } = responseData;
 
-      if (initError) throw new Error(initError.message);
+      if (!paymentIntentId) {
+        throw new Error('No payment intent ID received from server');
+      }
 
-      // Present payment sheet
-      const { error: presentError } = await presentPaymentSheet();
-      if (presentError) throw new Error(presentError.message);
-
-      // Save transaction to pg_transactions table
-      const { error: dbError } = await supabase
-        .from('pg_transactions')
-        .insert({
-          user_id: user.id,
-          stripe_payment_intent_id: paymentIntentId,
-          amount,
-          currency: 'usd',
-          status: 'succeeded',
-          description,
-        });
-
-      if (dbError) throw dbError;
+      console.log('Payment intent created successfully:', paymentIntentId);
       
-      await fetchTransactions();
+      // Transaction will be recorded by webhook when payment succeeds
+      // Real-time subscription will update UI automatically
+      
       return paymentIntentId;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-      throw err;
+      console.error('processPayment error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Payment failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Express checkout using default payment method
+  const expressCheckout = async (amount: number, description?: string): Promise<string> => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      // Ensure we have fresh payment methods data
+      await fetchPaymentMethods();
+      
+      if (paymentMethods.length === 0) {
+        throw new Error('No payment methods available. Please add a payment method first.');
+      }
+      
+      // Find default payment method
+      let defaultPaymentMethod = paymentMethods.find(pm => pm.is_default);
+      
+      // If no default is set, set the first payment method as default
+      if (!defaultPaymentMethod) {
+        console.log('No default payment method found, setting first payment method as default');
+        await setDefaultPaymentMethod(paymentMethods[0].id);
+        
+        // Use the first payment method directly instead of waiting for database sync
+        defaultPaymentMethod = paymentMethods[0];
+      }
+      
+      console.log('Express checkout using payment method:', defaultPaymentMethod.stripe_payment_method_id);
+      
+      // Process payment with the payment method
+      return await processPayment(amount, description, defaultPaymentMethod.stripe_payment_method_id);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Express checkout failed');
+      throw err;
     }
   };
 
@@ -363,6 +397,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     removePaymentMethod,
     setDefaultPaymentMethod,
     processPayment,
+    expressCheckout,
     fetchPaymentMethods,
     fetchTransactions,
   };

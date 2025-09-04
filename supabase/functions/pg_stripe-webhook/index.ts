@@ -250,15 +250,76 @@ serve(async (req) => {
         console.log(' Processing payment_intent.succeeded')
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         
-        const { error } = await supabase
-          .from('pg_transactions')
-          .update({ status: 'succeeded' })
-          .eq('stripe_payment_intent_id', paymentIntent.id)
+        console.log('Payment intent details:', {
+          id: paymentIntent.id,
+          amount: paymentIntent.amount,
+          currency: paymentIntent.currency,
+          customer: paymentIntent.customer,
+          description: paymentIntent.description
+        })
 
-        if (error) {
-          console.error(' Error updating transaction status:', error)
-        } else {
-          console.log(' Transaction status updated to succeeded:', paymentIntent.id)
+        // Get customer details to find user_id
+        if (!paymentIntent.customer) {
+          console.error(' No customer associated with payment intent')
+          break
+        }
+
+        try {
+          const customer = await stripe.customers.retrieve(paymentIntent.customer as string)
+          
+          if (customer.deleted) {
+            console.error(' Customer was deleted')
+            break
+          }
+
+          const userId = customer.metadata?.supabase_user_id
+          if (!userId) {
+            console.error(' No supabase_user_id found in customer metadata')
+            break
+          }
+
+          console.log(' Found user ID:', userId)
+
+          // Check if transaction already exists
+          const { data: existingTransaction } = await supabase
+            .from('pg_transactions')
+            .select('id')
+            .eq('stripe_payment_intent_id', paymentIntent.id)
+            .single()
+
+          if (existingTransaction) {
+            console.log(' Transaction exists, updating status')
+            const { error: updateError } = await supabase
+              .from('pg_transactions')
+              .update({ status: 'succeeded' })
+              .eq('stripe_payment_intent_id', paymentIntent.id)
+
+            if (updateError) {
+              console.error(' Error updating transaction status:', updateError)
+            } else {
+              console.log(' Transaction status updated to succeeded:', paymentIntent.id)
+            }
+          } else {
+            console.log(' Creating new transaction record')
+            const { error: insertError } = await supabase
+              .from('pg_transactions')
+              .insert({
+                user_id: userId,
+                stripe_payment_intent_id: paymentIntent.id,
+                amount: paymentIntent.amount,
+                currency: paymentIntent.currency,
+                status: 'succeeded',
+                description: paymentIntent.description
+              })
+
+            if (insertError) {
+              console.error(' Error creating transaction:', insertError)
+            } else {
+              console.log(' Transaction created successfully:', paymentIntent.id)
+            }
+          }
+        } catch (stripeError) {
+          console.error(' Stripe API error:', stripeError)
         }
         break
       }
