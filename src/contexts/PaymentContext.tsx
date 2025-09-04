@@ -39,6 +39,7 @@ interface PaymentContextType {
   processPayment: (amount: number, description?: string, paymentMethodId?: string) => Promise<string>;
   expressCheckout: (amount: number, description?: string) => Promise<string>;
   oneTimePayment: (amount: number, description?: string) => Promise<string>;
+  selectiveCheckout: (amount: number, paymentMethodId: string, description?: string) => Promise<string>;
   
   // Data fetching
   fetchPaymentMethods: () => Promise<void>;
@@ -407,6 +408,35 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Selective checkout - process payment with specific payment method
+  const selectiveCheckout = async (amount: number, paymentMethodId: string, description?: string): Promise<string> => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      // Ensure we have fresh payment methods data
+      await fetchPaymentMethods();
+      
+      if (paymentMethods.length === 0) {
+        throw new Error('No payment methods available. Please add a payment method first.');
+      }
+      
+      // Find the payment method to validate it exists
+      const selectedMethod = paymentMethods.find(pm => pm.stripe_payment_method_id === paymentMethodId);
+      if (!selectedMethod) {
+        throw new Error('Selected payment method not found');
+      }
+      
+      console.log('Selective checkout using payment method:', paymentMethodId);
+      
+      // Process payment with the selected payment method
+      return await processPayment(amount, description, paymentMethodId);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Selective checkout failed');
+      throw err;
+    }
+  };
+
   // Initial data fetch
   useEffect(() => {
     if (user) {
@@ -476,6 +506,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     processPayment,
     expressCheckout,
     oneTimePayment,
+    selectiveCheckout,
     fetchPaymentMethods,
     fetchTransactions,
   };
