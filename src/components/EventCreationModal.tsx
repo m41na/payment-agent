@@ -75,22 +75,8 @@ const EventCreationModal: React.FC<EventCreationModalProps> = ({ visible, onDism
       is_active: true,
     };
 
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .insert([event])
-        .select();
-
-      if (error) {
-        Alert.alert('Error', error.message);
-        return;
-      }
-
-      onSave(event);
-      handleReset();
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
+    onSave(event);
+    handleReset();
   };
 
   const handleReset = () => {

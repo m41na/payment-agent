@@ -24,45 +24,11 @@ const CheckoutScreen = () => {
   const { expressCheckout, loading } = usePayment();
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('cart');
   
-  // Mock cart data - in real app this would come from context/state management
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      title: 'Fresh Coffee Beans',
-      price: 15.99,
-      quantity: 2,
-      merchant: 'Local Coffee Roasters',
-    },
-    {
-      id: '2',
-      title: 'Handmade Pottery',
-      price: 25.00,
-      quantity: 1,
-      merchant: 'Artisan Ceramics',
-    }
-  ]);
+  // Cart data - will be loaded from context/state management
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Mock order history
-  const [orders] = useState<Order[]>([
-    {
-      id: 'ord_001',
-      date: '2024-01-15',
-      total: 41.98,
-      status: 'completed',
-      items: [
-        { id: '1', title: 'Fresh Coffee Beans', price: 15.99, quantity: 2, merchant: 'Local Coffee Roasters' }
-      ]
-    },
-    {
-      id: 'ord_002',
-      date: '2024-01-10',
-      total: 25.00,
-      status: 'completed',
-      items: [
-        { id: '2', title: 'Handmade Pottery', price: 25.00, quantity: 1, merchant: 'Artisan Ceramics' }
-      ]
-    }
-  ]);
+  // Order history - will be loaded from database
+  const [orders] = useState<Order[]>([]);
 
   const updateQuantity = (itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {

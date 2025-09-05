@@ -2,9 +2,123 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@12.9.0?target=deno'
 
+// Constants for type safety and clarity
+const PAYMENT_OPTIONS = {
+  EXPRESS: 'express',
+  ONE_TIME: 'one_time', 
+  SAVED: 'saved'
+} as const
+
+const VALIDITY_PERIOD = {
+  ONE_DAY: 'one_time',
+  MONTH: 'month',
+  YEAR: 'year'
+} as const
+
+const SUBSCRIPTION_TYPES = {
+  ONE_TIME: 'one_time',
+  RECURRING: 'recurring'
+} as const
+
+type PaymentOption = typeof PAYMENT_OPTIONS[keyof typeof PAYMENT_OPTIONS]
+type ValidityPeriod = typeof VALIDITY_PERIOD[keyof typeof VALIDITY_PERIOD]
+type SubscriptionType = typeof SUBSCRIPTION_TYPES[keyof typeof SUBSCRIPTION_TYPES]
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+  apiVersion: '2022-11-15',
+  httpClient: Stripe.createFetchHttpClient(),
+})
+
+const supabaseClient = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+)
+
+// Centralized function to resolve payment method ID from UUID to Stripe ID
+async function resolvePaymentMethodId(paymentMethodUuid: string): Promise<string> {
+  const { data: paymentMethod, error: pmError } = await supabaseClient
+    .from('pg_payment_methods')
+    .select('stripe_payment_method_id')
+    .eq('id', paymentMethodUuid)
+    .single()
+
+  if (pmError || !paymentMethod) {
+    throw new Error(`Payment method not found: ${paymentMethodUuid}`)
+  }
+
+  console.log(`Resolved payment method ${paymentMethodUuid} -> ${paymentMethod.stripe_payment_method_id}`);
+  return paymentMethod.stripe_payment_method_id
+}
+
+// Universal payment method processing - works for any product/amount
+async function processPaymentMethod(
+  paymentMethodId: string | undefined,
+  paymentOption: string,
+  userId: string
+): Promise<{ paymentMethodId: string | null; requiresSetup: boolean }> {
+  
+  if (paymentMethodId) {
+    // Specific payment method provided - resolve and use it
+    const resolvedPaymentMethodId = await resolvePaymentMethodId(paymentMethodId)
+    return { paymentMethodId: resolvedPaymentMethodId, requiresSetup: false }
+  }
+  
+  if (paymentOption === PAYMENT_OPTIONS.EXPRESS) {
+    // Express checkout - find/set default payment method
+    const resolvedPaymentMethodId = await resolveExpressPaymentMethod(userId)
+    return { 
+      paymentMethodId: resolvedPaymentMethodId, 
+      requiresSetup: resolvedPaymentMethodId === null 
+    }
+  }
+  
+  // No payment method provided - requires setup
+  return { paymentMethodId: null, requiresSetup: true }
+}
+
+async function resolveExpressPaymentMethod(userId: string): Promise<string | null> {
+  // Find and use default payment method
+  const { data: defaultPaymentMethod, error: pmError } = await supabaseClient
+    .from('pg_payment_methods')
+    .select('stripe_payment_method_id')
+    .eq('buyer_id', userId)
+    .eq('is_default', true)
+    .single()
+
+  if (!pmError && defaultPaymentMethod) {
+    console.log('Express checkout using default payment method:', defaultPaymentMethod.stripe_payment_method_id);
+    return defaultPaymentMethod.stripe_payment_method_id
+  } else {
+    // No default found, get first payment method and set it as default
+    const { data: firstPaymentMethod, error: firstPmError } = await supabaseClient
+      .from('pg_payment_methods')
+      .select('id, stripe_payment_method_id')
+      .eq('buyer_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single()
+
+    if (!firstPmError && firstPaymentMethod) {
+      console.log('Setting first payment method as default for express checkout:', firstPaymentMethod.stripe_payment_method_id);
+      
+      // Set as default in database
+      await supabaseClient
+        .from('pg_payment_methods')
+        .update({ is_default: true })
+        .eq('id', firstPaymentMethod.id)
+
+      // Use for payment
+      return firstPaymentMethod.stripe_payment_method_id
+    } else {
+      console.log('No payment methods found for express checkout, requires payment sheet');
+      return null
+    }
+  }
 }
 
 serve(async (req) => {
@@ -13,15 +127,6 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
-
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
-      apiVersion: '2022-11-15',
-    })
-
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
     const { data } = await supabaseClient.auth.getUser(token)
@@ -49,9 +154,20 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in subscription checkout:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      cause: error.cause
+    })
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack,
+        timestamp: new Date().toISOString()
+      }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -67,8 +183,15 @@ async function createSubscription(
   subscriptionData: {
     plan_id: string
     payment_method_id?: string
+    payment_option?: typeof PAYMENT_OPTIONS[keyof typeof PAYMENT_OPTIONS]
   }
 ) {
+  console.log('createSubscription called with:', {
+    userId: user.id,
+    subscriptionData,
+    timestamp: new Date().toISOString()
+  });
+
   // Get user profile
   const { data: profile, error: profileError } = await supabaseClient
     .from('pg_profiles')
@@ -76,25 +199,61 @@ async function createSubscription(
     .eq('id', user.id)
     .single()
 
+  console.log('Profile lookup result:', { profile, profileError });
+
   if (profileError || !profile) {
     throw new Error('User profile not found')
   }
 
   // Check if user already has active subscription
   if (profile.subscription_status === 'active') {
-    throw new Error('User already has an active subscription')
+    // Double-check by looking at actual subscription records
+    const { data: activeSubscriptions } = await supabaseClient
+      .from('pg_user_subscriptions')
+      .select('expires_at, status')
+      .eq('user_id', profile.id)
+      .eq('status', 'active');
+
+    // Check if any active subscriptions are actually still valid (not expired)
+    const hasValidSubscription = activeSubscriptions?.some(sub => 
+      !sub.expires_at || new Date(sub.expires_at) > new Date()
+    );
+
+    if (hasValidSubscription) {
+      throw new Error('User already has an active subscription')
+    }
   }
 
-  // Get subscription plan
+  // Get merchant plan from new table
+  console.log('Looking up merchant plan:', subscriptionData.plan_id)
+  
   const { data: plan, error: planError } = await supabaseClient
-    .from('pg_subscription_plans')
+    .from('pg_merchant_plans')
     .select('*')
     .eq('id', subscriptionData.plan_id)
     .eq('is_active', true)
     .single()
 
-  if (planError || !plan) {
-    throw new Error('Subscription plan not found')
+  console.log('Plan lookup result:', { plan, planError })
+
+  if (planError) {
+    console.error('Plan lookup error:', planError)
+    throw new Error(`Plan lookup failed: ${planError.message}`)
+  }
+  
+  if (!plan) {
+    // Try to find any plan with this ID (even inactive ones)
+    const { data: anyPlan } = await supabaseClient
+      .from('pg_merchant_plans')
+      .select('*')
+      .eq('id', subscriptionData.plan_id)
+      .single()
+    
+    if (anyPlan) {
+      throw new Error(`Plan "${subscriptionData.plan_id}" exists but is not active`)
+    } else {
+      throw new Error(`Plan "${subscriptionData.plan_id}" not found in database`)
+    }
   }
 
   // Ensure user has Stripe customer ID
@@ -115,22 +274,36 @@ async function createSubscription(
       .eq('id', user.id)
   }
 
-  // Create subscription
+  // Route based on payment method, not plan type (product-agnostic payment processing)
+  if (subscriptionData.payment_option === PAYMENT_OPTIONS.ONE_TIME) {
+    // One-time payment flow - works for any plan type
+    return await createOneTimePayment(stripe, supabaseClient, user, plan, customerId, subscriptionData)
+  }
+
+  // Recurring subscription flow for saved/express payment methods
+  // Works for any plan type - the payment method is independent of the product
   const subscriptionParams: any = {
     customer: customerId,
     items: [{ price: plan.stripe_price_id }],
-    payment_behavior: 'default_incomplete',
-    payment_settings: { save_default_payment_method: 'on_subscription' },
+    payment_settings: { 
+      save_default_payment_method: subscriptionData.payment_option === PAYMENT_OPTIONS.EXPRESS ? 'on_subscription' : 'off'
+    },
     expand: ['latest_invoice.payment_intent'],
     metadata: {
       user_id: user.id,
       plan_id: plan.id,
+      plan_name: plan.name,
     },
   }
 
-  // If payment method provided, attach it
-  if (subscriptionData.payment_method_id) {
-    subscriptionParams.default_payment_method = subscriptionData.payment_method_id
+  // Handle payment method and behavior
+  const paymentMethodResult = await processPaymentMethod(subscriptionData.payment_method_id, subscriptionData.payment_option, user.id)
+  
+  if (paymentMethodResult.paymentMethodId) {
+    subscriptionParams.default_payment_method = paymentMethodResult.paymentMethodId
+    subscriptionParams.payment_behavior = 'allow_incomplete'
+  } else {
+    subscriptionParams.payment_behavior = 'default_incomplete'
   }
 
   const subscription = await stripe.subscriptions.create(subscriptionParams)
@@ -143,11 +316,11 @@ async function createSubscription(
       plan_id: plan.id,
       stripe_subscription_id: subscription.id,
       status: subscription.status,
+      type: SUBSCRIPTION_TYPES.RECURRING,
       current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
       current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
     })
     .select()
-    .single()
 
   if (subscriptionError) {
     // Cleanup: cancel the Stripe subscription if database insert fails
@@ -170,6 +343,7 @@ async function createSubscription(
     success: true,
     subscription_id: subscription.id,
     status: subscription.status,
+    type: SUBSCRIPTION_TYPES.RECURRING,
   }
 
   // If subscription requires payment confirmation
@@ -423,6 +597,148 @@ async function previewSubscription(
         period_end: new Date(previewInvoice.period_end! * 1000).toISOString(),
       }
     }),
+    { 
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    },
+  )
+}
+
+async function createOneTimePayment(
+  stripe: Stripe,
+  supabaseClient: any,
+  user: any,
+  plan: any,
+  customerId: string,
+  subscriptionData: any
+) {
+  // Create payment intent for one-time payment
+  const paymentIntentParams: any = {
+    amount: plan.price_amount,
+    currency: plan.price_currency,
+    customer: customerId,
+    metadata: {
+      user_id: user.id,
+      plan_id: plan.id,
+      plan_name: plan.name,
+      type: 'one_time_merchant_access',
+    },
+    automatic_payment_methods: {
+      enabled: true,
+    },
+  }
+
+  const paymentMethodResult = await processPaymentMethod(subscriptionData.payment_method_id, subscriptionData.payment_option, user.id)
+  
+  if (paymentMethodResult.paymentMethodId) {
+    paymentIntentParams.payment_method = paymentMethodResult.paymentMethodId
+    paymentIntentParams.confirm = true
+    delete paymentIntentParams.automatic_payment_methods
+  }
+  // For one-time payments without payment method, leave automatic_payment_methods enabled
+
+  const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
+
+  // Calculate expiry time based on plan's validity period
+  const expiresAt = new Date()
+  if (plan.billing_interval === VALIDITY_PERIOD.ONE_DAY) {
+    expiresAt.setHours(expiresAt.getHours() + 24)
+  } else if (plan.billing_interval === VALIDITY_PERIOD.MONTH) {
+    expiresAt.setMonth(expiresAt.getMonth() + 1)
+  } else if (plan.billing_interval === VALIDITY_PERIOD.YEAR) {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+  }
+
+  // Save one-time payment to database
+  const { data: dbSubscription, error: subscriptionError } = await supabaseClient
+    .from('pg_user_subscriptions')
+    .insert({
+      user_id: user.id,
+      plan_id: plan.id,
+      stripe_payment_intent_id: paymentIntent.id,
+      status: paymentIntent.status === 'succeeded' ? 'active' : 'pending',
+      type: SUBSCRIPTION_TYPES.ONE_TIME,
+      expires_at: expiresAt.toISOString(),
+      purchased_at: new Date().toISOString(),
+    })
+    .select()
+
+  if (subscriptionError) {
+    // Cleanup: cancel the payment intent if database insert fails
+    if (paymentIntent.status !== 'succeeded') {
+      await stripe.paymentIntents.cancel(paymentIntent.id)
+    }
+    throw new Error(`Database error: ${subscriptionError.message}`)
+  }
+
+  // Update user profile if payment succeeded
+  if (paymentIntent.status === 'succeeded') {
+    console.log('Payment succeeded, updating profile for user:', user.id);
+    console.log('Updating profile with plan_id:', plan.id);
+    
+    const { error: profileUpdateError } = await supabaseClient
+      .from('pg_profiles')
+      .update({
+        current_plan_id: plan.id,
+        subscription_status: 'active',
+        merchant_status: 'plan_purchased',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+
+    if (profileUpdateError) {
+      console.error('Profile update failed:', profileUpdateError);
+      // Don't throw error, just log it since payment already succeeded
+    } else {
+      console.log('Profile updated successfully');
+      
+      // Also update user metadata so client can access updated status
+      const { error: metadataError } = await supabaseClient.auth.admin.updateUserById(
+        user.id,
+        {
+          user_metadata: {
+            subscription_status: 'active',
+            merchant_status: 'plan_purchased',
+            current_plan_id: plan.id
+          }
+        }
+      );
+      
+      if (metadataError) {
+        console.error('User metadata update failed:', metadataError);
+      } else {
+        console.log('User metadata updated successfully');
+      }
+    }
+  }
+
+  const result: any = {
+    success: true,
+    payment_intent_id: paymentIntent.id,
+    status: paymentIntent.status,
+    type: SUBSCRIPTION_TYPES.ONE_TIME,
+    expires_at: expiresAt.toISOString(),
+  }
+
+  // If payment requires action, include client secret
+  if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_payment_method') {
+    result.client_secret = paymentIntent.client_secret
+    result.requires_action = true
+
+    // Update user profile
+    await supabaseClient
+      .from('pg_profiles')
+      .update({
+        current_plan_id: plan.id,
+        subscription_status: 'pending',
+        merchant_status: 'plan_pending',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+  }
+
+  return new Response(
+    JSON.stringify(result),
     { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

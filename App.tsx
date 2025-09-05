@@ -119,9 +119,8 @@ const MainTabs = () => {
 const AppNavigator = () => {
   const { user, loading: authLoading } = useAuth();
   const { hasCompletedOnboarding, completeOnboarding, loading: onboardingLoading } = useOnboarding();
-  const { hasCompletedStripeConnectOnboarding, completeStripeConnectOnboarding, loading: stripeConnectOnboardingLoading } = useStripeConnect();
 
-  if (authLoading || onboardingLoading || stripeConnectOnboardingLoading) {
+  if (authLoading || onboardingLoading) {
     return null; // You can add a loading screen here
   }
 
@@ -129,13 +128,7 @@ const AppNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
         hasCompletedOnboarding ? (
-          hasCompletedStripeConnectOnboarding ? (
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-          ) : (
-            <Stack.Screen name="StripeConnectOnboarding">
-              {() => <StripeConnectOnboardingScreen onComplete={completeStripeConnectOnboarding} />}
-            </Stack.Screen>
-          )
+          <Stack.Screen name="MainTabs" component={MainTabs} />
         ) : (
           <Stack.Screen name="Onboarding">
             {() => <OnboardingScreen onComplete={completeOnboarding} />}

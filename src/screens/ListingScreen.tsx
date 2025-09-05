@@ -5,66 +5,59 @@ import { Calendar } from 'react-native-calendars';
 import { useLocation } from '../contexts/LocationContext';
 import { Product, Event } from '../types';
 import EventCreationModal from '../components/EventCreationModal';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../services/supabase';
 
 const ListingScreen = () => {
-  const { location, requestLocationPermission } = useLocation();
+  const { location, requestLocation } = useLocation();
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'calendar'>('list');
   const [contentType, setContentType] = useState<'products' | 'events'>('products');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [showEventModal, setShowEventModal] = useState(false);
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: '1',
-      organizer_id: 'organizer1',
-      title: 'Community Garage Sale',
-      description: 'Neighborhood-wide garage sale with furniture, electronics, and household items',
-      event_type: 'garage_sale',
-      start_date: '2024-01-20T08:00:00Z',
-      end_date: '2024-01-20T16:00:00Z',
-      latitude: 40.7589,
-      longitude: -73.9851,
-      location_name: 'Central Park Area',
-      address: '456 Park Ave, New York, NY',
-      contact_info: {
-        phone: '+1234567890',
-        email: 'contact@garagesale.com'
-      },
-      tags: ['garage sale', 'furniture', 'electronics'],
-      is_active: true,
-      created_at: '2024-01-15T10:30:00Z',
-      updated_at: '2024-01-15T10:30:00Z',
-      distance: 1.2,
-    },
-    {
-      id: '2',
-      organizer_id: 'organizer2',
-      title: 'Weekend Farmers Market',
-      description: 'Fresh produce, artisanal goods, and local crafts',
-      event_type: 'farmers_market',
-      start_date: '2024-01-21T07:00:00Z',
-      end_date: '2024-01-21T14:00:00Z',
-      latitude: 40.7505,
-      longitude: -73.9934,
-      location_name: 'Union Square',
-      address: 'Union Square, New York, NY',
-      contact_info: {
-        website: 'www.unionsquaremarket.com'
-      },
-      tags: ['farmers market', 'fresh produce', 'local'],
-      is_active: true,
-      created_at: '2024-01-15T10:30:00Z',
-      updated_at: '2024-01-15T10:30:00Z',
-      distance: 0.8,
-    },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!location) {
-      requestLocationPermission();
+      requestLocation();
     }
-  }, [location, requestLocationPermission]);
+  }, [location, requestLocation]);
+
+  useEffect(() => {
+    loadData();
+  }, [contentType]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (contentType === 'products') {
+        const { data, error } = await supabase
+          .from('pg_products')
+          .select('*')
+          .eq('is_available', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setProducts(data || []);
+      } else {
+        const { data, error } = await supabase
+          .from('pg_events')
+          .select('*')
+          .eq('is_active', true)
+          .gte('end_date', new Date().toISOString())
+          .order('start_date', { ascending: true });
+
+        if (error) throw error;
+        setEvents(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getEventTypeColor = (eventType: string) => {
     const colors = {
@@ -187,7 +180,7 @@ const ListingScreen = () => {
 
   const renderListView = () => (
     <FlatList
-      data={contentType === 'products' ? [] : events}
+      data={contentType === 'products' ? products : events}
       renderItem={contentType === 'products' ? renderProduct : renderEvent}
       keyExtractor={(item) => item.id}
       showsVerticalScrollIndicator={false}
@@ -206,12 +199,9 @@ const ListingScreen = () => {
   );
 
   const renderMapView = () => (
-    <View style={styles.mapPlaceholder}>
-      <Text variant="headlineSmall" style={styles.mapPlaceholderText}>
-        🗺️ Map View
-      </Text>
-      <Text style={styles.mapPlaceholderSubtext}>
-        Interactive map showing nearby {contentType} will be implemented here
+    <View style={styles.mapContainer}>
+      <Text variant="bodyLarge" style={styles.emptyStateText}>
+        Map view will be available when location data is loaded
       </Text>
     </View>
   );
@@ -228,16 +218,7 @@ const ListingScreen = () => {
 
       Alert.alert('Success', 'Event created successfully!');
       setShowEventModal(false);
-      
-      // Refresh events list to show the new event
-      const { data: newEvents, error: newError } = await supabase
-        .from('pg_events')
-        .select('*')
-        .order('start_date', { ascending: true });
-
-      if (newError) throw newError;
-
-      setEvents(newEvents);
+      loadData(); // Refresh the events list
     } catch (error) {
       console.error('Error creating event:', error);
       Alert.alert('Error', 'Failed to create event. Please try again.');
@@ -406,7 +387,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 20,
   },
-  mapPlaceholder: {
+  mapContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -414,15 +395,6 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 8,
     elevation: 2,
-  },
-  mapPlaceholderText: {
-    marginBottom: 8,
-    color: '#6200ee',
-  },
-  mapPlaceholderSubtext: {
-    color: '#666',
-    textAlign: 'center',
-    paddingHorizontal: 32,
   },
   emptyState: {
     flex: 1,

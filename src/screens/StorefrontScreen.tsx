@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { Text, Card, Button, Chip, FAB, Portal, Modal, Title, Paragraph, TextInput } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useStripeConnect } from '../contexts/StripeConnectContext';
 import { useLocation } from '../contexts/LocationContext';
 import { Product } from '../types';
 import { supabase } from '../services/supabase';
+import { MerchantPlanPurchaseModal } from '../components/MerchantPlanPurchaseModal';
 
 interface Product {
   id: string;
@@ -48,14 +51,22 @@ const StorefrontScreen = () => {
     hasActiveSubscription, 
     subscriptionPlans, 
     purchaseSubscription, 
+    purchaseDailyAccess,
     cancelSubscription, 
     loading: subscriptionLoading, 
-    subscription 
+    subscription,
+    refreshPlans 
   } = useSubscription();
+  const { 
+    hasCompletedOnboarding, 
+    startOnboarding, 
+    loading: onboardingLoading 
+  } = useStripeConnect();
   const { location } = useLocation();
   const [activeTab, setActiveTab] = useState<'inventory' | 'transactions'>('inventory');
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [showPlanSelection, setShowPlanSelection] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [newProduct, setNewProduct] = useState({
     title: '',
@@ -67,61 +78,51 @@ const StorefrontScreen = () => {
     address: '',
   });
 
-  // Mock inventory data
-  const [products] = useState<Product[]>([
-    {
-      id: '1',
-      title: 'Fresh Coffee Beans',
-      description: 'Premium arabica coffee beans, locally roasted',
-      price: 15.99,
-      category: 'Food & Beverage',
-      status: 'active',
-      inventory: 25
-    },
-    {
-      id: '2',
-      title: 'Ceramic Mug Set',
-      description: 'Handcrafted ceramic mugs, set of 4',
-      price: 45.00,
-      category: 'Home & Garden',
-      status: 'inactive',
-      inventory: 8
-    }
-  ]);
+  // Load user's products from database
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
-  // Mock transaction data
-  const [transactions] = useState<Transaction[]>([
-    {
-      id: 'txn_001',
-      date: '2024-01-15',
-      amount: 31.98,
-      status: 'completed',
-      customer: 'john.doe@email.com',
-      products: ['Fresh Coffee Beans x2']
-    },
-    {
-      id: 'txn_002',
-      date: '2024-01-14',
-      amount: 45.00,
-      status: 'completed',
-      customer: 'jane.smith@email.com',
-      products: ['Ceramic Mug Set x1']
+  // Fetch plans when tab becomes active
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasActiveSubscription) {
+        refreshPlans();
+      }
+    }, [hasActiveSubscription])
+  );
+
+  useEffect(() => {
+    if (user && subscription?.status === 'active') {
+      loadUserProducts();
     }
-  ]);
+  }, [user, subscription?.status]);
+
+  const loadUserProducts = async () => {
+    if (!user) return;
+    
+    setLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('pg_products')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      Alert.alert('Error', 'Failed to load your products');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Transaction data - will be loaded from database
+  const [transactions] = useState<Transaction[]>([]);
 
   const handleSubscribe = async () => {
-    if (!selectedPlan) {
-      Alert.alert('Error', 'Please select a plan');
-      return;
-    }
-
-    try {
-      await purchaseSubscription(selectedPlan.id);
-      setShowSubscriptionModal(false);
-      Alert.alert('Success', 'Subscription activated! You now have access to merchant features.');
-    } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to purchase subscription');
-    }
+    // Removed handleSubscribe implementation
   };
 
   const handleCancelSubscription = async () => {
@@ -179,10 +180,24 @@ const StorefrontScreen = () => {
         location_name: '',
         address: '',
       });
+      
+      // Refresh products list
+      loadUserProducts();
     } catch (error) {
       console.error('Error saving product:', error);
       Alert.alert('Error', 'Failed to add product. Please try again.');
     }
+  };
+
+  const handleSelectPlan = (plan: any) => {
+    setSelectedPlan(plan);
+    setShowPlanSelection(false);
+    setShowPurchaseModal(true);
+  };
+
+  const handleClosePurchaseModal = () => {
+    setShowPurchaseModal(false);
+    setSelectedPlan(null);
   };
 
   const renderSubscriptionWall = () => (
@@ -197,61 +212,77 @@ const StorefrontScreen = () => {
             Choose your merchant access option to unlock inventory management, transaction history, and storefront customization.
           </Text>
 
-          <ScrollView style={styles.scrollView}>
+          <Button
+            mode="contained"
+            onPress={() => setShowPlanSelection(true)}
+            style={styles.subscribeButton}
+            icon="store"
+          >
+            Choose Merchant Plan
+          </Button>
+        </Card.Content>
+      </Card>
+    </View>
+  );
+
+  const renderPlanSelection = () => (
+    <Modal 
+      visible={showPlanSelection} 
+      onDismiss={() => setShowPlanSelection(false)}
+      contentContainerStyle={styles.subscriptionModal}
+    >
+      <ScrollView style={styles.scrollView}>
+        <Card>
+          <Card.Content>
+            <Title style={styles.modalTitle}>Choose Your Plan</Title>
+            <Paragraph style={styles.modalDescription}>
+              Select a subscription plan to unlock merchant features and start selling.
+            </Paragraph>
+            
             {subscriptionPlans.map((plan) => (
-              <Card key={plan.id} style={[styles.planCard, selectedPlan?.id === plan.id && styles.selectedPlan]}>
+              <Card 
+                key={plan.id}
+                style={styles.modalPlanCard}
+              >
                 <Card.Content style={styles.planContent}>
                   <View style={styles.planHeader}>
                     <Title style={styles.planTitle}>{plan.name}</Title>
-                    <Text style={styles.planPrice}>${plan.price}</Text>
+                    <Text style={styles.planPrice}>
+                      ${(plan.price_amount / 100).toFixed(2)}
+                    </Text>
                   </View>
                   <Text style={styles.planInterval}>
-                    {plan.type === 'one_time' ? 'One-time payment' : `per ${plan.interval}`}
+                    {plan.billing_interval === 'one_time' ? 'One-time payment' : `per ${plan.billing_interval}`}
                   </Text>
                   <Text style={styles.planDescription}>{plan.description}</Text>
-                  {plan.type === 'one_time' && (
+                  {plan.billing_interval === 'one_time' && (
                     <Text style={styles.planNote}>
-                      • Access expires after 24 hours
-                      • Perfect for garage sales & auctions
+                      • Access expires after 24 hours{'\n'}
+                      • Perfect for garage sales & auctions{'\n'}
                       • No cancellation needed
                     </Text>
                   )}
-                  {plan.type === 'recurring' && (
+                  {plan.billing_interval !== 'one_time' && (
                     <Text style={styles.planNote}>
-                      • Recurring billing
-                      • Cancel anytime
+                      • Recurring billing{'\n'}
+                      • Cancel anytime{'\n'}
                       • Full merchant features
                     </Text>
                   )}
                   <Button
-                    mode={selectedPlan?.id === plan.id ? "contained" : "outlined"}
-                    onPress={() => setSelectedPlan(plan)}
+                    mode="contained"
+                    onPress={() => handleSelectPlan(plan)}
                     style={styles.selectButton}
                   >
-                    {selectedPlan?.id === plan.id ? "Selected" : "Select Plan"}
+                    Select Plan
                   </Button>
                 </Card.Content>
               </Card>
             ))}
-            
-            {selectedPlan && (
-              <Button
-                mode="contained"
-                onPress={handleSubscribe}
-                loading={subscriptionLoading}
-                disabled={subscriptionLoading}
-                style={styles.subscribeButton}
-              >
-                {selectedPlan.type === 'one_time' 
-                  ? `Purchase ${selectedPlan.name}` 
-                  : `Subscribe to ${selectedPlan.name}`
-                }
-              </Button>
-            )}
-          </ScrollView>
-        </Card.Content>
-      </Card>
-    </View>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </Modal>
   );
 
   const renderActiveSubscription = () => (
@@ -401,12 +432,18 @@ const StorefrontScreen = () => {
             Manage your products and services. All items are automatically geotagged with your current location for proximity-based discovery.
           </Text>
 
-          <FlatList
-            data={products}
-            renderItem={renderProduct}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-          />
+          {loadingProducts ? (
+            <Text style={styles.loadingText}>Loading your products...</Text>
+          ) : products.length > 0 ? (
+            <FlatList
+              data={products}
+              renderItem={renderProduct}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+            />
+          ) : (
+            <Text style={styles.emptyText}>No products yet. Add your first product to get started!</Text>
+          )}
         </Card.Content>
       </Card>
     </View>
@@ -425,81 +462,12 @@ const StorefrontScreen = () => {
     return (
       <>
         {renderSubscriptionWall()}
-        <Portal>
-          <Modal 
-            visible={showSubscriptionModal} 
-            onDismiss={() => setShowSubscriptionModal(false)}
-            contentContainerStyle={styles.subscriptionModal}
-          >
-            <ScrollView style={styles.scrollView}>
-              <Card>
-                <Card.Content>
-                  <Title style={styles.modalTitle}>Choose Your Plan</Title>
-                  <Paragraph style={styles.modalDescription}>
-                    Select a subscription plan to unlock merchant features and start selling.
-                  </Paragraph>
-                  
-                  {subscriptionPlans.map((plan) => (
-                    <Card 
-                      key={plan.id}
-                      style={[
-                        styles.modalPlanCard,
-                        selectedPlan?.id === plan.id && styles.selectedPlan
-                      ]}
-                    >
-                      <Card.Content style={styles.planContent}>
-                        <View style={styles.planHeader}>
-                          <Title style={styles.planTitle}>{plan.name}</Title>
-                          <Text style={styles.planPrice}>${plan.price}</Text>
-                        </View>
-                        <Text style={styles.planInterval}>
-                          {plan.type === 'one_time' ? 'One-time payment' : `per ${plan.interval}`}
-                        </Text>
-                        <Text style={styles.planDescription}>{plan.description}</Text>
-                        {plan.type === 'one_time' && (
-                          <Text style={styles.planNote}>
-                            • Access expires after 24 hours
-                            • Perfect for garage sales & auctions
-                            • No cancellation needed
-                          </Text>
-                        )}
-                        {plan.type === 'recurring' && (
-                          <Text style={styles.planNote}>
-                            • Recurring billing
-                            • Cancel anytime
-                            • Full merchant features
-                          </Text>
-                        )}
-                        <Button
-                          mode={selectedPlan?.id === plan.id ? "contained" : "outlined"}
-                          onPress={() => setSelectedPlan(plan)}
-                          style={styles.selectButton}
-                        >
-                          {selectedPlan?.id === plan.id ? "Selected" : "Select Plan"}
-                        </Button>
-                      </Card.Content>
-                    </Card>
-                  ))}
-                  
-                  {selectedPlan && (
-                    <Button
-                      mode="contained"
-                      onPress={handleSubscribe}
-                      loading={subscriptionLoading}
-                      disabled={subscriptionLoading}
-                      style={styles.subscribeButton}
-                    >
-                      {selectedPlan.type === 'one_time' 
-                        ? `Purchase ${selectedPlan.name}` 
-                        : `Subscribe to ${selectedPlan.name}`
-                      }
-                    </Button>
-                  )}
-                </Card.Content>
-              </Card>
-            </ScrollView>
-          </Modal>
-        </Portal>
+        {renderPlanSelection()}
+        <MerchantPlanPurchaseModal
+          visible={showPurchaseModal}
+          onClose={handleClosePurchaseModal}
+          selectedPlan={selectedPlan}
+        />
         <Portal>
           <Modal 
             visible={showProductModal} 
@@ -622,6 +590,30 @@ const StorefrontScreen = () => {
     );
   }
 
+  if (hasActiveSubscription && !hasCompletedOnboarding) {
+    return (
+      <View style={styles.container}>
+        <Card style={styles.statusCard}>
+          <Card.Content>
+            <Title style={styles.statusTitle}>Complete Stripe Connect Onboarding</Title>
+            <Text style={styles.statusDescription}>
+              To access merchant features, please complete the Stripe Connect onboarding process.
+            </Text>
+            <Button
+              mode="contained"
+              onPress={startOnboarding}
+              loading={onboardingLoading}
+              disabled={onboardingLoading}
+              style={styles.subscribeButton}
+            >
+              Start Onboarding
+            </Button>
+          </Card.Content>
+        </Card>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -678,7 +670,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   scrollView: {
-    maxHeight: 400,
+    flexGrow: 1,
+  },
+  subscriptionModal: {
+    padding: 16,
+    maxHeight: '80%',
   },
   planCard: {
     marginVertical: 8,
@@ -727,112 +723,6 @@ const styles = StyleSheet.create({
   subscribeButton: {
     marginTop: 24,
     paddingVertical: 8,
-  },
-  header: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  tabButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  tabButton: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  inventoryContainer: {
-    flex: 1,
-  },
-  listContainer: {
-    padding: 8,
-  },
-  productCard: {
-    margin: 8,
-  },
-  productHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  productInfo: {
-    flex: 1,
-  },
-  productCategory: {
-    color: '#666',
-    marginTop: 2,
-  },
-  productRight: {
-    alignItems: 'flex-end',
-  },
-  statusChip: {
-    marginBottom: 4,
-  },
-  activeChip: {
-    backgroundColor: '#e8f5e8',
-  },
-  productPrice: {
-    color: '#6200ee',
-    fontWeight: 'bold',
-  },
-  productDescription: {
-    marginBottom: 8,
-    color: '#666',
-  },
-  inventoryText: {
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  transactionCard: {
-    margin: 8,
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  transactionDate: {
-    color: '#666',
-    marginTop: 2,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-  },
-  completedChip: {
-    backgroundColor: '#e8f5e8',
-  },
-  transactionAmount: {
-    color: '#6200ee',
-    fontWeight: 'bold',
-  },
-  customerText: {
-    color: '#666',
-    marginBottom: 8,
-  },
-  productsSection: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  productText: {
-    color: '#666',
-    marginBottom: 2,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-  },
-  subscriptionModal: {
-    padding: 16,
   },
   modalTitle: {
     textAlign: 'center',
@@ -954,6 +844,121 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: '#666',
+    fontStyle: 'italic',
+    marginVertical: 20,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    fontStyle: 'italic',
+    marginVertical: 20,
+  },
+  header: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  title: {
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  tabButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  tabButton: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  inventoryContainer: {
+    flex: 1,
+  },
+  listContainer: {
+    padding: 8,
+  },
+  productCard: {
+    margin: 8,
+  },
+  productHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productCategory: {
+    color: '#666',
+    marginTop: 2,
+  },
+  productRight: {
+    alignItems: 'flex-end',
+  },
+  statusChip: {
+    marginBottom: 4,
+  },
+  activeChip: {
+    backgroundColor: '#e8f5e8',
+  },
+  productPrice: {
+    color: '#6200ee',
+    fontWeight: 'bold',
+  },
+  productDescription: {
+    marginBottom: 8,
+    color: '#666',
+  },
+  inventoryText: {
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  transactionCard: {
+    margin: 8,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  transactionDate: {
+    color: '#666',
+    marginTop: 2,
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
+  completedChip: {
+    backgroundColor: '#e8f5e8',
+  },
+  transactionAmount: {
+    color: '#6200ee',
+    fontWeight: 'bold',
+  },
+  customerText: {
+    color: '#666',
+    marginBottom: 8,
+  },
+  productsSection: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  productText: {
+    color: '#666',
+    marginBottom: 2,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });
 

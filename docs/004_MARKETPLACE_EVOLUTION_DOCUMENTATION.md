@@ -180,6 +180,220 @@ WHERE ST_DWithin(
 
 ---
 
+## Stripe Connect Onboarding Flow
+
+### Overview
+The marketplace uses Stripe Connect to enable sellers to receive payments directly while the platform collects fees. This creates a compliant, secure payment infrastructure where sellers become "Connected Accounts" under the platform's main Stripe account.
+
+### How Stripe Connect Onboarding Works
+
+#### 1. Account Creation (Backend)
+When a user wants to become a seller:
+- Frontend calls `createConnectAccount()` from `StripeConnectContext`
+- Backend function `pg_stripe-connect-onboarding` creates a Stripe Connect account
+- Stripe returns an account ID (e.g., `acct_1234567890`)
+- Account details stored in `pg_stripe_connect_accounts` table
+
+```typescript
+// Backend creates Connect account
+const account = await stripe.accounts.create({
+  type: 'express', // Simplified onboarding
+  country: 'US',
+  email: user.email,
+});
+```
+
+#### 2. Onboarding Link Generation (Backend)
+- Backend generates a secure, time-limited onboarding URL
+- Link hosted entirely by Stripe (not your servers)
+- Expires after 24 hours for security
+- Contains return/refresh URLs for deep linking back to app
+
+```typescript
+const accountLink = await stripe.accountLinks.create({
+  account: account.id,
+  return_url: 'paymentagent://merchant/onboarding/complete',
+  refresh_url: 'paymentagent://merchant/onboarding/refresh',
+  type: 'account_onboarding',
+});
+```
+
+#### 3. User Completes Onboarding (Stripe's Website)
+User is redirected to Stripe's secure hosted form where they provide:
+
+**Business Information:**
+- Business name and type
+- Business address
+- Industry/product description
+- Website (if applicable)
+
+**Personal Information (for identity verification):**
+- Full legal name
+- Date of birth
+- Social Security Number (SSN) or Tax ID
+- Personal address
+- Phone number
+
+**Banking Information:**
+- Bank routing number
+- Bank account number
+- Account type (checking/savings)
+
+**Document Uploads (if required):**
+- Government-issued ID
+- Business documents (articles of incorporation, etc.)
+- Additional verification documents as needed
+
+#### 4. Redirect Back to App
+- After completion, Stripe redirects using deep link URLs
+- App receives the redirect and calls `refreshAccountStatus()`
+- Backend queries Stripe API for updated account capabilities
+- Database updated with new onboarding status
+
+### Test Data for Development
+
+When testing the onboarding flow, use Stripe's test data:
+
+**Personal Information:**
+- SSN: `000-00-0000`
+- Phone: Any US phone number format
+- Address: Any valid US address
+
+**Banking Information:**
+- Routing Number: `110000000`
+- Account Number: `000123456789`
+- Account Type: Checking
+
+**Business Information:**
+- Use any realistic business name and address
+- Industry: Select appropriate category
+- Website: Can be left blank or use placeholder
+
+### Account Status Flow
+
+```
+pending → in_progress → completed → active
+    ↓         ↓           ↓         ↓
+ Created   Started    Submitted  Verified
+```
+
+**Status Definitions:**
+- `pending`: Account created, onboarding not started
+- `in_progress`: User has started but not completed onboarding
+- `completed`: All information submitted, under review
+- `active`: Fully verified, can accept payments
+- `restricted`: Issues found, additional information needed
+
+### Payment Capabilities
+
+Once onboarding is complete, the Connect account gains capabilities:
+- `charges_enabled`: Can receive payments
+- `payouts_enabled`: Can receive payouts to bank account
+- `transfers_enabled`: Can receive transfers from platform
+
+### Integration Points
+
+**Frontend Context (`StripeConnectContext`):**
+- `createConnectAccount()`: Initiates account creation
+- `getOnboardingUrl()`: Gets fresh onboarding link
+- `refreshAccountStatus()`: Updates account status
+- `isOnboardingComplete`: Boolean for UI state
+- `canAcceptPayments`: Boolean for payment capabilities
+
+**Backend API (`pg_stripe-connect-onboarding`):**
+- `create_connect_account`: Creates Stripe account
+- `create_onboarding_link`: Generates onboarding URL
+- `get_account_status`: Fetches current account state
+- `refresh_onboarding_link`: Creates new URL if expired
+
+**Database Schema (`pg_stripe_connect_accounts`):**
+```sql
+- stripe_account_id: Stripe's account identifier
+- onboarding_status: Current onboarding state
+- charges_enabled: Can receive payments
+- payouts_enabled: Can receive payouts
+- requirements: Array of missing information
+```
+
+### Security Considerations
+
+**Data Protection:**
+- No sensitive financial data stored in your database
+- All PII handled by Stripe's PCI-compliant infrastructure
+- Account tokens and secrets managed by Stripe
+
+**Compliance:**
+- Stripe handles KYC (Know Your Customer) verification
+- AML (Anti-Money Laundering) compliance automated
+- Tax reporting (1099-K) handled by Stripe
+
+**Access Control:**
+- Only account owners can view their Connect account details
+- Platform can only access account status and capabilities
+- Sensitive account details remain with Stripe
+
+### Error Handling
+
+**Common Issues:**
+- Expired onboarding links (generate new one)
+- Incomplete information (redirect to complete)
+- Account restrictions (provide additional documents)
+- Bank account verification failures (re-verify)
+
+**Recovery Flows:**
+- Refresh expired links automatically
+- Provide clear error messages for missing information
+- Guide users through document upload process
+- Support contact for complex verification issues
+
+### Production Considerations
+
+**Before Going Live:**
+- Switch to live Stripe API keys
+- Configure webhook endpoints for real-time updates
+- Set up monitoring for failed onboardings
+- Prepare customer support for verification issues
+- Test with real bank accounts (small amounts)
+
+**Ongoing Maintenance:**
+- Monitor account status changes via webhooks
+- Handle account restrictions promptly
+- Keep onboarding links fresh (regenerate before expiry)
+- Provide clear communication about verification timelines
+
+This Stripe Connect integration provides a seamless, compliant way for users to become sellers while maintaining platform control over the payment flow and fee collection.
+
+---
+
+## User Experience Flow
+
+#### User Role Definitions:
+- **Buyer (Default):** All users are implicitly buyers upon signup - no explicit choice or additional onboarding required
+- **Merchant/Seller:** Explicit choice made by purchasing a merchant plan through the Storefront tab
+
+#### Onboarding Types:
+1. **App Onboarding:** General app introduction/walkthrough for all users
+2. **Stripe Connect Onboarding:** Merchant-specific KYC compliance process (only for users who purchase merchant plans)
+
+#### Payment Options for Buyers:
+- **Express Checkout:** Requires creating and saving payment methods
+- **One-time Checkout Payment:** No payment method saved, not available for next checkout
+- **Select Saved Method Checkout:** Requires one or more saved payment methods
+
+#### Discovery Journey (All Users):
+1. **Browse** events via calendar or products via list/map
+2. **Filter** by proximity, type, date, or price
+3. **View Details** with contact information and location
+4. **Navigate** to events or contact sellers
+
+#### Merchant Upgrade Journey:
+1. **Purchase Merchant Plan** through Storefront tab (Daily Access or Recurring Subscription)
+2. **Automatic Storefront Provisioning** with object storage access for product images/details
+3. **Complete Stripe Connect Onboarding** for KYC compliance and payment processing
+4. **Access Full Merchant Features** including inventory management and transaction history
+
+---
+
 ## Final Architecture Decisions
 
 ### Database Schema Design
@@ -336,8 +550,120 @@ A comprehensive platform for local commerce connecting:
 
 ---
 
-## Conclusion
+## Subscription System Testing Guide
 
+### Subscription Purchase Flow
+
+The subscription system supports two types of merchant plans:
+1. **Daily Access** - One-time payment for 24-hour merchant access
+2. **Recurring Subscriptions** - Monthly/yearly recurring billing
+
+#### Payment Completion Updates
+When a subscription purchase is completed successfully:
+
+**pg_user_subscriptions table:**
+- New record inserted with:
+  - `user_id` - The purchasing user's UUID
+  - `plan_id` - The merchant plan UUID from pg_merchant_plans
+  - `stripe_subscription_id` - For recurring plans
+  - `stripe_payment_intent_id` - For one-time payments
+  - `status` - Set to 'active' when payment succeeds
+  - `type` - Either 'recurring' or 'one_time'
+  - `expires_at` - For one-time payments (24 hours from purchase)
+  - `current_period_start/end` - For recurring subscriptions
+
+**pg_profiles table:**
+- `current_plan_id` - Updated to the purchased plan's UUID
+- `subscription_status` - Set to 'active'
+- `merchant_status` - Changed to 'plan_purchased'
+- `updated_at` - Timestamp of the update
+
+### Duplicate Purchase Prevention
+
+The system prevents users from purchasing multiple active subscriptions through:
+
+#### 1. Application-Level Check (pg_subscription-checkout edge function)
+```typescript
+// Enhanced check with expiry validation
+if (profile.subscription_status === 'active') {
+  const { data: activeSubscriptions } = await supabaseClient
+    .from('pg_user_subscriptions')
+    .select('expires_at, status')
+    .eq('user_id', profile.id)
+    .eq('status', 'active');
+
+  const hasValidSubscription = activeSubscriptions?.some(sub => 
+    !sub.expires_at || new Date(sub.expires_at) > new Date()
+  );
+
+  if (hasValidSubscription) {
+    throw new Error('User already has an active subscription')
+  }
+}
+```
+
+#### 2. Database-Level Constraint (Recommended)
+```sql
+-- Create partial unique index to prevent multiple active subscriptions
+CREATE UNIQUE INDEX unique_active_subscription_per_user 
+ON pg_user_subscriptions (user_id) 
+WHERE status = 'active';
+```
+
+### Manual Subscription Expiration (For Testing)
+
+To reset a user's subscription status for testing multiple purchases:
+
+#### Recommended Approach (Expire Subscription)
+```sql
+-- Expire the subscription (maintains audit trail)
+UPDATE pg_user_subscriptions 
+SET 
+  status = 'expired',
+  expires_at = NOW(),
+  current_period_end = NOW(),
+  updated_at = NOW()
+WHERE user_id = 'YOUR_USER_UUID_HERE' 
+  AND status = 'active';
+
+-- Reset profile status
+UPDATE pg_profiles 
+SET 
+  subscription_status = 'none',
+  merchant_status = 'none',
+  current_plan_id = NULL,
+  updated_at = NOW()
+WHERE id = 'YOUR_USER_UUID_HERE';
+```
+
+#### Alternative Approach (Delete Records)
+```sql
+-- Delete subscription records (loses audit trail)
+DELETE FROM pg_user_subscriptions 
+WHERE user_id = 'YOUR_USER_UUID_HERE' AND status = 'active';
+
+-- Reset profile status
+UPDATE pg_profiles 
+SET 
+  subscription_status = 'none',
+  merchant_status = 'none', 
+  current_plan_id = NULL,
+  updated_at = NOW()
+WHERE id = 'YOUR_USER_UUID_HERE';
+```
+
+**Note:** The expiration approach is recommended as it maintains historical data for analytics and debugging purposes.
+
+### Testing Workflow
+
+1. **Purchase Subscription** - Use the StorefrontScreen to select and purchase a plan
+2. **Verify Prevention** - Attempt to purchase another subscription (should be blocked)
+3. **Expire Subscription** - Run manual expiration SQL to reset user state
+4. **Repeat Testing** - Purchase different plans to test various scenarios
+
+---
+
+## Conclusion
 The transformation from **Payment Agent** to **Local Marketplace Platform** represents a fundamental evolution in both technical architecture and business model. Through careful analysis of user needs and local commerce patterns, we created a unique dual-dimension marketplace that serves the real-world needs of local buyers, sellers, and event organizers.
 
 The final platform successfully combines:

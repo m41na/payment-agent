@@ -144,6 +144,59 @@ This payment agent implements 4 distinct payment flows, each with specific use c
 - Returns client secret for payment method collection
 - Configures automatic payment method attachment
 
+## The Brutal Debugging Journey
+
+### Product-Agnostic Payment Architecture
+**CRITICAL LESSON:** Payment methods must be completely independent of product characteristics.
+
+**The Problem:** Original implementation had product-specific payment methods that created tight coupling between payment processing and product types. This led to:
+- Duplicate code for each product type
+- Maintenance nightmares when adding new products
+- Inconsistent payment behavior across different products
+- Debugging hell when payment flows broke
+
+**The Solution:** Three clean, product-agnostic entry points:
+1. `purchaseWithNewCard(planId)` - New card, no saving
+2. `purchaseWithSavedCard(planId, paymentMethodId)` - Specific saved card
+3. `purchaseWithExpressCheckout(planId)` - Default saved card
+
+**Key Principle:** "The product is purely a price point" - payment processing should never know or care about product characteristics.
+
+### Constant Mismatch Hell
+**BRUTAL DEBUGGING EXPERIENCE:** Frontend/backend constant mismatches caused routing failures.
+
+**The Problem:**
+- Frontend: `PAYMENT_OPTIONS.ONE_TIME = 'one_time'` (underscore)
+- Backend: `PAYMENT_OPTIONS.ONE_TIME = 'one-time'` (hyphen)
+
+**The Symptoms:**
+- One-time payments routed to recurring subscription flow
+- Stripe errors about one_time prices in recurring subscriptions
+- "No subscription found" webhook errors
+- Hours of debugging payment flows that should have worked
+
+**The Fix:** Standardized all constants to use underscores (`'one_time'`, `'express'`, `'saved'`)
+
+**LESSON LEARNED:** Constant mismatches are silent killers. Always validate constants match exactly between frontend and backend.
+
+### Subscription Record Creation Timing
+**CRITICAL:** Subscription records MUST be created BEFORE payment processing, not after.
+
+**The Problem:** Original flow created subscription records after successful payment, causing webhook failures:
+1. Payment processed successfully
+2. Webhook triggered immediately
+3. Webhook looked for subscription record
+4. Record didn't exist yet → "No subscription found" error
+5. Payment succeeded but subscription not activated
+
+**The Solution:** Create subscription records BEFORE payment processing:
+1. Create subscription record in database
+2. Process payment with Stripe
+3. Webhook finds existing record and updates it
+4. No race conditions, reliable webhook processing
+
+**LESSON LEARNED:** Race conditions between payment processing and database operations will destroy your sanity. Always create records before async operations.
+
 ## Common Pitfalls
 
 1. **Table Name Mismatches:** Always use `pg_*` prefixed table names

@@ -88,7 +88,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data, error } = await supabase
         .from('pg_transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -520,7 +520,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
               event: 'INSERT',
               schema: 'public',
               table: 'pg_transactions',
-              filter: `user_id=eq.${user.id}`
+              filter: `buyer_id=eq.${user.id}`
             },
             (payload) => {
               console.log('Transaction inserted:', payload.new);
@@ -533,7 +533,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
               event: 'UPDATE',
               schema: 'public',
               table: 'pg_transactions',
-              filter: `user_id=eq.${user.id}`
+              filter: `buyer_id=eq.${user.id}`
             },
             (payload) => {
               console.log('Transaction updated:', payload.new);

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Linking } from 'react-native';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
 
@@ -23,7 +24,9 @@ interface StripeConnectContextType {
   loading: boolean;
   isOnboardingComplete: boolean;
   canAcceptPayments: boolean;
+  hasCompletedOnboarding: boolean;
   createConnectAccount: () => Promise<string | null>; // Returns onboarding URL
+  startOnboarding: () => Promise<void>;
   refreshAccountStatus: () => Promise<void>;
   getOnboardingUrl: (accountId: string) => Promise<string | null>;
 }
@@ -88,8 +91,8 @@ export const StripeConnectProvider: React.FC<{ children: React.ReactNode }> = ({
         body: {
           action: 'create_onboarding_link',
           accountData: {
-            return_url: `${process.env.EXPO_PUBLIC_API_URL || 'exp://localhost:8081'}/merchant/onboarding/complete`,
-            refresh_url: `${process.env.EXPO_PUBLIC_API_URL || 'exp://localhost:8081'}/merchant/onboarding/refresh`,
+            return_url: 'paymentagent://merchant/onboarding/complete',
+            refresh_url: 'paymentagent://merchant/onboarding/refresh',
           }
         },
         headers: {
@@ -135,12 +138,14 @@ export const StripeConnectProvider: React.FC<{ children: React.ReactNode }> = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No session found');
 
+      console.log('Getting onboarding URL for account:', accountId);
+
       const { data, error } = await supabase.functions.invoke('pg_stripe-connect-onboarding', {
         body: {
           action: 'create_onboarding_link',
           accountData: {
-            return_url: `${process.env.EXPO_PUBLIC_API_URL || 'exp://localhost:8081'}/merchant/onboarding/complete`,
-            refresh_url: `${process.env.EXPO_PUBLIC_API_URL || 'exp://localhost:8081'}/merchant/onboarding/refresh`,
+            return_url: 'paymentagent://merchant/onboarding/complete',
+            refresh_url: 'paymentagent://merchant/onboarding/refresh',
           }
         },
         headers: {
@@ -148,13 +153,38 @@ export const StripeConnectProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error || 'Failed to get onboarding URL');
+      if (error) {
+        console.error('Error invoking onboarding function:', error);
+        console.error('Error details:', {
+          message: error.message,
+          context: error.context,
+          details: error.details
+        });
+        throw error;
+      }
+
+      console.log('Onboarding function response:', data);
+
+      if (!data.success) {
+        console.error('Onboarding function failed:', data.error);
+        throw new Error(data.error || 'Failed to get onboarding URL');
+      }
 
       return data.onboarding_url;
     } catch (error) {
       console.error('Error getting onboarding URL:', error);
       return null;
+    }
+  };
+
+  const startOnboarding = async (): Promise<void> => {
+    try {
+      const onboardingUrl = await getOnboardingUrl(account?.id as string);
+      if (onboardingUrl) {
+        await Linking.openURL(onboardingUrl);
+      }
+    } catch (error) {
+      console.error('Error starting onboarding:', error);
     }
   };
 
@@ -228,7 +258,9 @@ export const StripeConnectProvider: React.FC<{ children: React.ReactNode }> = ({
     loading,
     isOnboardingComplete,
     canAcceptPayments,
+    hasCompletedOnboarding: account?.onboarding_status === 'completed',
     createConnectAccount,
+    startOnboarding,
     refreshAccountStatus,
     getOnboardingUrl,
   };

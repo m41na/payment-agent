@@ -49,9 +49,20 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in stripe-connect-onboarding:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      cause: error.cause
+    })
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack,
+        timestamp: new Date().toISOString()
+      }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -61,6 +72,8 @@ serve(async (req) => {
 })
 
 async function createConnectAccount(stripe: Stripe, supabaseClient: any, user: any) {
+  console.log('Creating Connect account for user:', user.id)
+  
   // Get user profile
   const { data: profile, error: profileError } = await supabaseClient
     .from('pg_profiles')
@@ -69,13 +82,37 @@ async function createConnectAccount(stripe: Stripe, supabaseClient: any, user: a
     .single()
 
   if (profileError || !profile) {
+    console.error('Profile error:', profileError)
     throw new Error('User profile not found')
   }
 
-  // Check if user has active subscription
-  if (profile.subscription_status !== 'active') {
+  console.log('User profile found:', profile.id)
+
+  // Check if user has active subscription by querying user subscriptions table
+  const { data: subscription, error: subscriptionError } = await supabaseClient
+    .from('pg_user_subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .single()
+
+  console.log('Subscription query result:', { subscription, subscriptionError })
+
+  if (subscriptionError) {
+    // If it's just "no rows returned", that's different from a real error
+    if (subscriptionError.code === 'PGRST116') {
+      throw new Error('No active subscription found. Please purchase a subscription first.')
+    } else {
+      console.error('Subscription query error:', subscriptionError)
+      throw new Error('Error checking subscription status')
+    }
+  }
+
+  if (!subscription) {
     throw new Error('Active subscription required for merchant onboarding')
   }
+
+  console.log('Active subscription found:', subscription.id)
 
   // Check if Connect account already exists
   if (profile.stripe_connect_account_id) {
