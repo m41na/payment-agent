@@ -13,6 +13,8 @@ import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
 import { LocationProvider } from './src/contexts/LocationContext';
 import { OnboardingProvider, useOnboarding } from './src/contexts/OnboardingContext';
 import { StripeConnectProvider, useStripeConnect } from './src/contexts/StripeConnectContext';
+import { InventoryProvider } from './src/contexts/InventoryContext';
+import { TransactionHistoryProvider } from './src/contexts/TransactionHistoryContext';
 import AuthScreen from './src/screens/AuthScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import StripeConnectOnboardingScreen from './src/screens/StripeConnectOnboardingScreen';
@@ -21,6 +23,7 @@ import ListingScreen from './src/screens/ListingScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
 import StorefrontScreen from './src/screens/StorefrontScreen';
 import PaymentMethodsScreen from './src/screens/PaymentMethodsScreen';
+import SellerDashboardScreen from './src/screens/SellerDashboardScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -153,10 +156,14 @@ export default function App() {
               <PaymentProvider>
                 <SubscriptionProvider>
                   <LocationProvider>
-                    <NavigationContainer>
-                      <AppNavigator />
-                      <StatusBar style="light" />
-                    </NavigationContainer>
+                    <InventoryProvider>
+                      <TransactionHistoryProvider>
+                        <NavigationContainer>
+                          <AppNavigator />
+                          <StatusBar style="light" />
+                        </NavigationContainer>
+                      </TransactionHistoryProvider>
+                    </InventoryProvider>
                   </LocationProvider>
                 </SubscriptionProvider>
               </PaymentProvider>

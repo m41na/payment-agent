@@ -22,22 +22,169 @@ serve(async (req) => {
       apiVersion: '2022-11-15',
     })
 
-    const authHeader = req.headers.get('Authorization')!
+    const url = new URL(req.url)
+    const action = url.searchParams.get('action')
+
+    // Handle redirect URLs (no auth required)
+    if (action === 'test') {
+      return new Response('<h1>Test HTML</h1><p>This is a test.</p>', {
+        status: 200,
+        headers: { 
+          'Content-Type': 'text/html'
+        }
+      });
+    }
+
+    if (action === 'handle_onboarding_return') {
+      console.log('Handling onboarding return redirect');
+      
+      try {
+        // Extract account ID from query parameters or session
+        const accountId = url.searchParams.get('account_id');
+        if (!accountId) {
+          throw new Error('Missing account ID in return URL');
+        }
+
+        // Fetch the latest account status from Stripe
+        const account = await stripe.accounts.retrieve(accountId);
+        
+        console.log('Onboarding completion check:', {
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          currently_due_count: account.requirements?.currently_due?.length || 0,
+          currently_due: account.requirements?.currently_due,
+        });
+
+        // Determine appropriate onboarding status
+        let onboarding_status = 'pending';
+        if (account.charges_enabled && account.payouts_enabled) {
+          onboarding_status = 'completed';
+        } else if (account.requirements?.currently_due?.length > 0 || account.requirements?.past_due?.length > 0) {
+          onboarding_status = 'in_progress';
+        }
+
+        // Update our database with the latest account information
+        const { error: updateError } = await supabaseClient
+          .from('pg_stripe_connect_accounts')
+          .update({
+            charges_enabled: account.charges_enabled,
+            payouts_enabled: account.payouts_enabled,
+            requirements: account.requirements,
+            onboarding_status: onboarding_status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('stripe_account_id', accountId);
+
+        if (updateError) {
+          console.error('Error updating account status:', updateError);
+          throw updateError;
+        }
+
+        // Determine onboarding completion status
+        const isOnboardingComplete = account.charges_enabled && 
+                                    account.payouts_enabled &&
+                                    (!account.requirements?.currently_due || account.requirements.currently_due.length === 0);
+
+        console.log('Onboarding status updated:', { accountId, isOnboardingComplete });
+
+        // Return JSON response since Supabase blocks HTML anyway
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Onboarding status updated successfully',
+          account_id: accountId,
+          onboarding_complete: isOnboardingComplete,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          }
+        });
+
+      } catch (error) {
+        console.error('Error processing onboarding return:', error);
+        return new Response(JSON.stringify({
+          success: false,
+          error: error.message || 'Failed to process onboarding return',
+          timestamp: new Date().toISOString()
+        }), {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          }
+        });
+      }
+    }
+    
+    if (action === 'refresh_onboarding_link') {
+      const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refreshing Onboarding</title>
+  <meta http-equiv="refresh" content="3;url=paymentagent://merchant/onboarding/refresh">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; background: #f8f9fa;">
+  <div style="max-width: 400px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <div style="border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto;"></div>
+    <h1 style="color: #333; margin-bottom: 20px;">Refreshing Onboarding...</h1>
+    <p style="color: #666;">Please wait while we refresh your onboarding session.</p>
+    <p style="color: #999; font-size: 14px; margin-top: 20px;">You will be redirected automatically in 3 seconds.</p>
+  </div>
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</body>
+</html>`;
+
+      return new Response(htmlContent, {
+        status: 200,
+        headers: { 
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Security-Policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'none'; object-src 'none';",
+          'X-Frame-Options': 'DENY',
+          'X-Content-Type-Options': 'nosniff',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        }
+      });
+    }
+
+    // All other actions require authentication
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const token = authHeader.replace('Bearer ', '')
     const { data } = await supabaseClient.auth.getUser(token)
     const user = data.user
 
     if (!user) {
-      throw new Error('Unauthorized')
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
-
-    const { action, accountData } = await req.json()
 
     switch (action) {
       case 'create_connect_account':
         return await createConnectAccount(stripe, supabaseClient, user)
       case 'create_onboarding_link':
-        return await createOnboardingLink(stripe, supabaseClient, user, accountData)
+        return await createOnboardingLink(stripe, supabaseClient, user, {
+          return_url: url.searchParams.get('return_url'),
+          refresh_url: url.searchParams.get('refresh_url')
+        })
       case 'get_account_status':
         return await getAccountStatus(stripe, supabaseClient, user)
       case 'refresh_onboarding_link':
@@ -114,9 +261,20 @@ async function createConnectAccount(stripe: Stripe, supabaseClient: any, user: a
 
   console.log('Active subscription found:', subscription.id)
 
-  // Check if Connect account already exists
-  if (profile.stripe_connect_account_id) {
-    throw new Error('Connect account already exists')
+  // Check if merchant account already exists
+  const { data: existingMerchant, error: merchantError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (merchantError && merchantError.code !== 'PGRST116') {
+    console.error('Error checking existing merchant account:', merchantError)
+    throw new Error('Error checking merchant account status')
+  }
+
+  if (existingMerchant) {
+    throw new Error('Merchant account already exists')
   }
 
   // Create Stripe Connect account
@@ -135,20 +293,28 @@ async function createConnectAccount(stripe: Stripe, supabaseClient: any, user: a
     },
   })
 
-  // Update user profile with Connect account ID
-  const { error: updateError } = await supabaseClient
-    .from('pg_profiles')
-    .update({
-      stripe_connect_account_id: account.id,
-      merchant_status: 'onboarding_started',
-      updated_at: new Date().toISOString(),
+  // Create merchant account record
+  const { data: merchantAccount, error: insertError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .insert({
+      user_id: user.id,
+      stripe_account_id: account.id,
+      onboarding_status: 'pending',
+      charges_enabled: false,
+      payouts_enabled: false,
+      requirements: {
+        currently_due: [],
+        eventually_due: [],
+        past_due: [],
+      },
     })
-    .eq('id', user.id)
+    .select()
+    .single()
 
-  if (updateError) {
-    // Cleanup: delete the Stripe account if database update fails
+  if (insertError) {
+    // Cleanup: delete the Stripe account if database insert fails
     await stripe.accounts.del(account.id)
-    throw new Error(`Database error: ${updateError.message}`)
+    throw new Error(`Database error: ${insertError.message}`)
   }
 
   // Log the event
@@ -167,6 +333,7 @@ async function createConnectAccount(stripe: Stripe, supabaseClient: any, user: a
     JSON.stringify({ 
       success: true, 
       account_id: account.id,
+      merchant_account_id: merchantAccount.id,
       next_step: 'create_onboarding_link'
     }),
     { 
@@ -180,39 +347,26 @@ async function createOnboardingLink(
   stripe: Stripe, 
   supabaseClient: any, 
   user: any,
-  accountData: { return_url: string; refresh_url: string }
+  accountData: { return_url?: string; refresh_url?: string }
 ) {
-  // Get user profile with Connect account
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('pg_profiles')
-    .select('stripe_connect_account_id, merchant_status')
-    .eq('id', user.id)
+  // Get merchant account
+  const { data: merchantAccount, error: merchantError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .select('stripe_account_id')
+    .eq('user_id', user.id)
     .single()
 
-  if (profileError || !profile?.stripe_connect_account_id) {
-    throw new Error('Connect account not found')
+  if (merchantError || !merchantAccount) {
+    throw new Error('Merchant account not found')
   }
 
-  // Create onboarding link
+  // Create onboarding link with account_id in URLs
   const accountLink = await stripe.accountLinks.create({
-    account: profile.stripe_connect_account_id,
-    refresh_url: accountData.refresh_url,
-    return_url: accountData.return_url,
+    account: merchantAccount.stripe_account_id,
+    refresh_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/pg_stripe-connect-onboarding?action=refresh_onboarding_link&account_id=${merchantAccount.stripe_account_id}`,
+    return_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/pg_stripe-connect-onboarding?action=handle_onboarding_return&account_id=${merchantAccount.stripe_account_id}`,
     type: 'account_onboarding',
   })
-
-  // Update profile with onboarding URL
-  const { error: updateError } = await supabaseClient
-    .from('pg_profiles')
-    .update({
-      onboarding_url: accountLink.url,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', user.id)
-
-  if (updateError) {
-    throw new Error(`Database error: ${updateError.message}`)
-  }
 
   // Log the event
   await supabaseClient
@@ -221,7 +375,7 @@ async function createOnboardingLink(
       user_id: user.id,
       event_type: 'onboarding_link_created',
       event_data: {
-        stripe_account_id: profile.stripe_connect_account_id,
+        stripe_account_id: merchantAccount.stripe_account_id,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       },
     })
@@ -240,19 +394,19 @@ async function createOnboardingLink(
 }
 
 async function getAccountStatus(stripe: Stripe, supabaseClient: any, user: any) {
-  // Get user profile
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('pg_profiles')
-    .select('stripe_connect_account_id, merchant_status')
-    .eq('id', user.id)
+  // Get merchant account
+  const { data: merchantAccount, error: merchantError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .select('stripe_account_id, onboarding_status, charges_enabled, payouts_enabled, requirements')
+    .eq('user_id', user.id)
     .single()
 
-  if (profileError || !profile?.stripe_connect_account_id) {
+  if (merchantError || !merchantAccount) {
     return new Response(
       JSON.stringify({ 
         success: true, 
         account_status: 'not_created',
-        merchant_status: profile?.merchant_status || 'none'
+        merchant_status: 'none'
       }),
       { 
         status: 200,
@@ -262,7 +416,7 @@ async function getAccountStatus(stripe: Stripe, supabaseClient: any, user: any) 
   }
 
   // Get account details from Stripe
-  const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id)
+  const account = await stripe.accounts.retrieve(merchantAccount.stripe_account_id)
 
   const accountStatus = {
     id: account.id,
@@ -275,19 +429,18 @@ async function getAccountStatus(stripe: Stripe, supabaseClient: any, user: any) 
   }
 
   // Determine if onboarding is complete
-  const isOnboardingComplete = account.details_submitted && 
-                              account.charges_enabled && 
+  const isOnboardingComplete = account.charges_enabled && 
                               account.payouts_enabled
 
   // Update merchant status if onboarding is complete
-  if (isOnboardingComplete && profile.merchant_status !== 'active') {
+  if (isOnboardingComplete && merchantAccount.onboarding_status !== 'active') {
     await supabaseClient
-      .from('pg_profiles')
+      .from('pg_stripe_connect_accounts')
       .update({
-        merchant_status: 'active',
+        onboarding_status: 'active',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', user.id)
+      .eq('user_id', user.id)
 
     // Log the completion
     await supabaseClient
@@ -307,7 +460,7 @@ async function getAccountStatus(stripe: Stripe, supabaseClient: any, user: any) 
     JSON.stringify({ 
       success: true, 
       account_status: accountStatus,
-      merchant_status: isOnboardingComplete ? 'active' : profile.merchant_status,
+      merchant_status: isOnboardingComplete ? 'active' : merchantAccount.onboarding_status,
       onboarding_complete: isOnboardingComplete
     }),
     { 
@@ -318,37 +471,24 @@ async function getAccountStatus(stripe: Stripe, supabaseClient: any, user: any) 
 }
 
 async function refreshOnboardingLink(stripe: Stripe, supabaseClient: any, user: any) {
-  // Get user profile
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('pg_profiles')
-    .select('stripe_connect_account_id')
-    .eq('id', user.id)
+  // Get merchant account
+  const { data: merchantAccount, error: merchantError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .select('stripe_account_id')
+    .eq('user_id', user.id)
     .single()
 
-  if (profileError || !profile?.stripe_connect_account_id) {
-    throw new Error('Connect account not found')
+  if (merchantError || !merchantAccount) {
+    throw new Error('Merchant account not found')
   }
 
   // Create new onboarding link
   const accountLink = await stripe.accountLinks.create({
-    account: profile.stripe_connect_account_id,
-    refresh_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/pg_stripe-connect-onboarding`,
-    return_url: `${Deno.env.get('FRONTEND_URL')}/merchant/onboarding/complete`,
+    account: merchantAccount.stripe_account_id,
+    refresh_url: 'https://your-app-domain.com/merchant/onboarding/refresh',
+    return_url: 'https://your-app-domain.com/merchant/onboarding/complete',
     type: 'account_onboarding',
   })
-
-  // Update profile with new onboarding URL
-  const { error: updateError } = await supabaseClient
-    .from('pg_profiles')
-    .update({
-      onboarding_url: accountLink.url,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', user.id)
-
-  if (updateError) {
-    throw new Error(`Database error: ${updateError.message}`)
-  }
 
   return new Response(
     JSON.stringify({ 
@@ -367,35 +507,33 @@ async function handleOnboardingReturn(stripe: Stripe, supabaseClient: any, user:
   // This function handles the return from Stripe onboarding
   // It checks the account status and updates the merchant status accordingly
   
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('pg_profiles')
-    .select('stripe_connect_account_id')
-    .eq('id', user.id)
+  // Get merchant account
+  const { data: merchantAccount, error: merchantError } = await supabaseClient
+    .from('pg_stripe_connect_accounts')
+    .select('stripe_account_id')
+    .eq('user_id', user.id)
     .single()
 
-  if (profileError || !profile?.stripe_connect_account_id) {
-    throw new Error('Connect account not found')
+  if (merchantError || !merchantAccount) {
+    throw new Error('Merchant account not found')
   }
 
   // Get fresh account status
-  const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id)
+  const account = await stripe.accounts.retrieve(merchantAccount.stripe_account_id)
   
   let newStatus = 'onboarding_started'
-  if (account.details_submitted) {
-    newStatus = account.charges_enabled && account.payouts_enabled 
-      ? 'active' 
-      : 'onboarding_completed'
+  if (account.charges_enabled && account.payouts_enabled) {
+    newStatus = 'active'
   }
 
   // Update merchant status
   await supabaseClient
-    .from('pg_profiles')
+    .from('pg_stripe_connect_accounts')
     .update({
-      merchant_status: newStatus,
-      onboarding_url: null, // Clear the onboarding URL
+      onboarding_status: newStatus,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', user.id)
+    .eq('user_id', user.id)
 
   // Log the return event
   await supabaseClient
@@ -405,7 +543,6 @@ async function handleOnboardingReturn(stripe: Stripe, supabaseClient: any, user:
       event_type: 'onboarding_return',
       event_data: {
         stripe_account_id: account.id,
-        details_submitted: account.details_submitted,
         charges_enabled: account.charges_enabled,
         payouts_enabled: account.payouts_enabled,
         new_status: newStatus,

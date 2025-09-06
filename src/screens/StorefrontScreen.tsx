@@ -1,14 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
-import { Text, Card, Button, Chip, FAB, Portal, Modal, Title, Paragraph, TextInput } from 'react-native-paper';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  RefreshControl,
+  FlatList,
+} from 'react-native';
+import {
+  Card,
+  Title,
+  Paragraph,
+  Button,
+  TextInput,
+  Modal,
+  Portal,
+  FAB,
+  Chip,
+  Surface,
+  Text,
+  IconButton,
+  Divider,
+  ProgressBar,
+  Badge,
+} from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '../contexts/SubscriptionContext';
-import { useStripeConnect } from '../contexts/StripeConnectContext';
 import { useLocation } from '../contexts/LocationContext';
-import { Product } from '../types';
 import { supabase } from '../services/supabase';
-import { MerchantPlanPurchaseModal } from '../components/MerchantPlanPurchaseModal';
 
 interface Product {
   id: string;
@@ -16,88 +35,65 @@ interface Product {
   description: string;
   price: number;
   category: string;
-  status: 'active' | 'inactive';
-  inventory?: number;
+  condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+  seller_id: string;
+  latitude: number;
+  longitude: number;
+  location_name?: string;
+  address?: string;
+  images: string[];
+  tags: string[];
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Transaction {
   id: string;
-  date: string;
   amount: number;
+  date: string;
   status: 'completed' | 'pending' | 'refunded';
   customer: string;
   products: string[];
-}
-
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  price: number;
-  interval: string;
-  type: 'one_time' | 'recurring';
-  description: string;
-}
-
-interface Subscription {
-  id: string;
-  type: 'one_time' | 'recurring';
-  expires_at?: string;
-  current_period_end?: string;
+  buyer_id: string;
+  seller_id: string;
+  created_at: string;
 }
 
 const StorefrontScreen = () => {
   const { user } = useAuth();
-  const { 
-    hasActiveSubscription, 
-    subscriptionPlans, 
-    purchaseSubscription, 
-    purchaseDailyAccess,
-    cancelSubscription, 
-    loading: subscriptionLoading, 
-    subscription,
-    refreshPlans 
-  } = useSubscription();
-  const { 
-    hasCompletedOnboarding, 
-    startOnboarding, 
-    loading: onboardingLoading 
-  } = useStripeConnect();
   const { location } = useLocation();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'transactions'>('inventory');
-  const [showPlanSelection, setShowPlanSelection] = useState(false);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+
+  // State management
+  const [products, setProducts] = useState<Product[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Modal states
   const [showProductModal, setShowProductModal] = useState(false);
-  const [newProduct, setNewProduct] = useState({
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Form state
+  const [productForm, setProductForm] = useState({
     title: '',
     description: '',
     price: '',
     category: '',
     condition: 'good' as const,
-    location_name: '',
-    address: '',
   });
 
-  // Load user's products from database
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  // Stats
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    todayRevenue: 0,
+    totalSales: 0,
+    activeProducts: 0,
+  });
 
-  // Fetch plans when tab becomes active
-  useFocusEffect(
-    React.useCallback(() => {
-      if (!hasActiveSubscription) {
-        refreshPlans();
-      }
-    }, [hasActiveSubscription])
-  );
-
-  useEffect(() => {
-    if (user && subscription?.status === 'active') {
-      loadUserProducts();
-    }
-  }, [user, subscription?.status]);
-
-  const loadUserProducts = async () => {
+  // Load products
+  const loadProducts = useCallback(async () => {
     if (!user) return;
     
     setLoadingProducts(true);
@@ -110,536 +106,509 @@ const StorefrontScreen = () => {
 
       if (error) throw error;
       setProducts(data || []);
+      
+      // Update stats
+      const activeCount = (data || []).filter(p => p.is_available).length;
+      setStats(prev => ({ ...prev, activeProducts: activeCount }));
     } catch (error) {
-      console.error('Error loading products:', error);
-      Alert.alert('Error', 'Failed to load your products');
+      Alert.alert('Error', 'Failed to load products');
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, [user]);
 
-  // Transaction data - will be loaded from database
-  const [transactions] = useState<Transaction[]>([]);
-
-  const handleSubscribe = async () => {
-    // Removed handleSubscribe implementation
-  };
-
-  const handleCancelSubscription = async () => {
+  // Load transactions with real-time updates
+  const loadTransactions = useCallback(async () => {
+    if (!user) return;
+    
+    setLoadingTransactions(true);
     try {
-      await cancelSubscription();
-      Alert.alert('Success', 'Subscription cancelled!');
+      const { data, error } = await supabase
+        .from('pg_transactions')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      
+      const transformedTransactions = (data || []).map(t => ({
+        id: t.id,
+        amount: t.amount / 100,
+        date: t.created_at,
+        status: t.status,
+        customer: 'Customer',
+        products: t.metadata?.product_names || [],
+        buyer_id: t.buyer_id,
+        seller_id: t.seller_id,
+        created_at: t.created_at,
+      }));
+      
+      setTransactions(transformedTransactions);
+      
+      // Calculate stats
+      const totalRevenue = transformedTransactions
+        .filter(t => t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const today = new Date().toDateString();
+      const todayRevenue = transformedTransactions
+        .filter(t => t.status === 'completed' && new Date(t.date).toDateString() === today)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalSales = transformedTransactions.filter(t => t.status === 'completed').length;
+      
+      setStats(prev => ({
+        ...prev,
+        totalRevenue,
+        todayRevenue,
+        totalSales,
+      }));
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to cancel subscription');
+      Alert.alert('Error', 'Failed to load transactions');
+    } finally {
+      setLoadingTransactions(false);
     }
-  };
+  }, [user]);
 
-  const handleAddProduct = () => {
-    setShowProductModal(true);
-  };
+  // Set up real-time subscription for transactions
+  useEffect(() => {
+    if (!user) return;
 
+    const channel = supabase
+      .channel('seller-transactions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pg_transactions',
+          filter: `seller_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log(' New transaction update:', payload);
+          loadTransactions(); // Refresh transactions on any change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadTransactions]);
+
+  // Initial load
+  useFocusEffect(
+    useCallback(() => {
+      loadProducts();
+      loadTransactions();
+    }, [loadProducts, loadTransactions])
+  );
+
+  // Refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadProducts(), loadTransactions()]);
+    setRefreshing(false);
+  }, [loadProducts, loadTransactions]);
+
+  // Product CRUD operations
   const handleSaveProduct = async () => {
-    if (!newProduct.title || !newProduct.price || !location) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!productForm.title || !productForm.price || !location) {
+      Alert.alert('Error', 'Please fill in required fields and enable location');
       return;
     }
 
     try {
-      const product: Partial<Product> = {
-        title: newProduct.title,
-        description: newProduct.description,
-        price: parseFloat(newProduct.price),
-        category: newProduct.category,
-        condition: newProduct.condition,
+      const productData = {
+        title: productForm.title,
+        description: productForm.description,
+        price: Math.round(parseFloat(productForm.price) * 100), // Convert to cents
+        category: productForm.category,
+        condition: productForm.condition,
         seller_id: user!.id,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        location_name: newProduct.location_name,
-        address: newProduct.address,
+        is_available: true,
         images: [],
         tags: [],
-        is_available: true,
       };
 
-      const { data, error } = await supabase
-        .from('pg_products')
-        .insert([product])
-        .select()
-        .single();
+      if (editingProduct) {
+        // Update existing product
+        const { error } = await supabase
+          .from('pg_products')
+          .update(productData)
+          .eq('id', editingProduct.id);
+        
+        if (error) throw error;
+        Alert.alert('Success', 'Product updated!');
+      } else {
+        // Create new product
+        const { error } = await supabase
+          .from('pg_products')
+          .insert([productData]);
+        
+        if (error) throw error;
+        Alert.alert('Success', 'Product added to your store!');
+      }
 
-      if (error) throw error;
-      
-      Alert.alert('Success', 'Product added to your inventory!');
-      setShowProductModal(false);
-      setNewProduct({
+      // Reset form and close modal
+      setProductForm({
         title: '',
         description: '',
         price: '',
         category: '',
         condition: 'good',
-        location_name: '',
-        address: '',
       });
-      
-      // Refresh products list
-      loadUserProducts();
+      setEditingProduct(null);
+      setShowProductModal(false);
+      loadProducts();
     } catch (error) {
-      console.error('Error saving product:', error);
-      Alert.alert('Error', 'Failed to add product. Please try again.');
+      Alert.alert('Error', 'Failed to save product');
     }
   };
 
-  const handleSelectPlan = (plan: any) => {
-    setSelectedPlan(plan);
-    setShowPlanSelection(false);
-    setShowPurchaseModal(true);
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setProductForm({
+      title: product.title,
+      description: product.description,
+      price: (product.price / 100).toString(),
+      category: product.category,
+      condition: product.condition,
+    });
+    setShowProductModal(true);
   };
 
-  const handleClosePurchaseModal = () => {
-    setShowPurchaseModal(false);
-    setSelectedPlan(null);
+  const handleDeleteProduct = (product: Product) => {
+    Alert.alert(
+      'Delete Product',
+      `Are you sure you want to delete "${product.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('pg_products')
+                .delete()
+                .eq('id', product.id);
+              
+              if (error) throw error;
+              Alert.alert('Success', 'Product deleted');
+              loadProducts();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete product');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const renderSubscriptionWall = () => (
-    <View style={styles.subscriptionWall}>
-      <Card style={styles.subscriptionCard}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={styles.cardTitle}>
-            Merchant Features
-          </Text>
-          
-          <Text variant="bodyLarge" style={styles.cardDescription}>
-            Choose your merchant access option to unlock inventory management, transaction history, and storefront customization.
-          </Text>
+  const toggleProductAvailability = async (product: Product) => {
+    try {
+      const { error } = await supabase
+        .from('pg_products')
+        .update({ is_available: !product.is_available })
+        .eq('id', product.id);
+      
+      if (error) throw error;
+      loadProducts();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update product');
+    }
+  };
 
-          <Button
-            mode="contained"
-            onPress={() => setShowPlanSelection(true)}
-            style={styles.subscribeButton}
-            icon="store"
-          >
-            Choose Merchant Plan
-          </Button>
-        </Card.Content>
-      </Card>
+  // Render components
+  const renderStatsCards = () => (
+    <View style={styles.statsContainer}>
+      <Surface style={styles.statCard}>
+        <Text style={styles.statValue}>${stats.totalRevenue.toFixed(2)}</Text>
+        <Text style={styles.statLabel}>Total Revenue</Text>
+      </Surface>
+      <Surface style={styles.statCard}>
+        <Text style={styles.statValue}>${stats.todayRevenue.toFixed(2)}</Text>
+        <Text style={styles.statLabel}>Today</Text>
+      </Surface>
+      <Surface style={styles.statCard}>
+        <Text style={styles.statValue}>{stats.totalSales}</Text>
+        <Text style={styles.statLabel}>Sales</Text>
+      </Surface>
+      <Surface style={styles.statCard}>
+        <Text style={styles.statValue}>{stats.activeProducts}</Text>
+        <Text style={styles.statLabel}>Active Products</Text>
+      </Surface>
     </View>
   );
 
-  const renderPlanSelection = () => (
-    <Modal 
-      visible={showPlanSelection} 
-      onDismiss={() => setShowPlanSelection(false)}
-      contentContainerStyle={styles.subscriptionModal}
-    >
-      <ScrollView style={styles.scrollView}>
-        <Card>
-          <Card.Content>
-            <Title style={styles.modalTitle}>Choose Your Plan</Title>
-            <Paragraph style={styles.modalDescription}>
-              Select a subscription plan to unlock merchant features and start selling.
-            </Paragraph>
-            
-            {subscriptionPlans.map((plan) => (
-              <Card 
-                key={plan.id}
-                style={styles.modalPlanCard}
-              >
-                <Card.Content style={styles.planContent}>
-                  <View style={styles.planHeader}>
-                    <Title style={styles.planTitle}>{plan.name}</Title>
-                    <Text style={styles.planPrice}>
-                      ${(plan.price_amount / 100).toFixed(2)}
-                    </Text>
-                  </View>
-                  <Text style={styles.planInterval}>
-                    {plan.billing_interval === 'one_time' ? 'One-time payment' : `per ${plan.billing_interval}`}
-                  </Text>
-                  <Text style={styles.planDescription}>{plan.description}</Text>
-                  {plan.billing_interval === 'one_time' && (
-                    <Text style={styles.planNote}>
-                      • Access expires after 24 hours{'\n'}
-                      • Perfect for garage sales & auctions{'\n'}
-                      • No cancellation needed
-                    </Text>
-                  )}
-                  {plan.billing_interval !== 'one_time' && (
-                    <Text style={styles.planNote}>
-                      • Recurring billing{'\n'}
-                      • Cancel anytime{'\n'}
-                      • Full merchant features
-                    </Text>
-                  )}
-                  <Button
-                    mode="contained"
-                    onPress={() => handleSelectPlan(plan)}
-                    style={styles.selectButton}
-                  >
-                    Select Plan
-                  </Button>
-                </Card.Content>
-              </Card>
-            ))}
-          </Card.Content>
-        </Card>
-      </ScrollView>
-    </Modal>
-  );
-
-  const renderActiveSubscription = () => (
-    <ScrollView style={styles.container}>
-      <Card style={styles.statusCard}>
-        <Card.Content>
-          <View style={styles.statusHeader}>
-            <Title style={styles.statusTitle}>
-              {subscription?.type === 'one_time' ? 'Daily Access Active' : 'Subscription Active'}
-            </Title>
-            <Chip 
-              mode="flat" 
-              style={[styles.statusChip, { backgroundColor: '#e8f5e8' }]}
-              textStyle={{ color: '#2e7d32' }}
-            >
-              Active
-            </Chip>
-          </View>
-          
-          <Text style={styles.statusDescription}>
-            {subscription?.type === 'one_time' 
-              ? `Your daily access expires at ${new Date(subscription.expires_at).toLocaleString()}`
-              : `Your subscription renews on ${new Date(subscription.current_period_end).toLocaleDateString()}`
-            }
-          </Text>
-
-          {subscription?.type === 'recurring' && (
-            <Button
-              mode="outlined"
-              onPress={handleCancelSubscription}
-              style={styles.cancelButton}
-              textColor="#d32f2f"
-            >
-              Cancel Subscription
-            </Button>
-          )}
-          
-          {subscription?.type === 'one_time' && (
-            <Text style={styles.dailyAccessNote}>
-              Daily access cannot be cancelled as it expires automatically after 24 hours.
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
-    </ScrollView>
-  );
-
-  const renderProduct = ({ item }: { item: Product }) => (
+  const renderProductCard = ({ item: product }: { item: Product }) => (
     <Card style={styles.productCard}>
       <Card.Content>
         <View style={styles.productHeader}>
           <View style={styles.productInfo}>
-            <Text variant="titleMedium">{item.title}</Text>
-            <Text variant="bodySmall" style={styles.productCategory}>
-              {item.category}
-            </Text>
+            <Title style={styles.productTitle}>{product.title}</Title>
+            <Text style={styles.productPrice}>${(product.price / 100).toFixed(2)}</Text>
           </View>
-          <View style={styles.productRight}>
+          <View style={styles.productActions}>
             <Chip 
-              mode="outlined" 
-              compact
+              mode={product.is_available ? 'flat' : 'outlined'}
               style={[
                 styles.statusChip,
-                item.status === 'active' && styles.activeChip
+                { backgroundColor: product.is_available ? '#4CAF50' : '#FF9800' }
               ]}
+              textStyle={{ color: 'white' }}
             >
-              {item.status}
+              {product.is_available ? 'Active' : 'Inactive'}
             </Chip>
-            <Text variant="titleMedium" style={styles.productPrice}>
-              ${item.price.toFixed(2)}
-            </Text>
           </View>
         </View>
         
-        <Text variant="bodyMedium" style={styles.productDescription}>
-          {item.description}
-        </Text>
+        {product.description && (
+          <Paragraph style={styles.productDescription}>{product.description}</Paragraph>
+        )}
         
-        {item.inventory !== undefined && (
-          <Text variant="bodySmall" style={styles.inventoryText}>
-            {item.inventory} in stock
+        <View style={styles.productMeta}>
+          <Chip mode="outlined" compact>{product.category}</Chip>
+          <Chip mode="outlined" compact>{product.condition.replace('_', ' ')}</Chip>
+        </View>
+        
+        <View style={styles.productButtons}>
+          <Button 
+            mode="outlined" 
+            onPress={() => handleEditProduct(product)}
+            style={styles.actionButton}
+            compact
+          >
+            Edit
+          </Button>
+          <Button 
+            mode={product.is_available ? 'outlined' : 'contained'}
+            onPress={() => toggleProductAvailability(product)}
+            style={styles.actionButton}
+            compact
+          >
+            {product.is_available ? 'Deactivate' : 'Activate'}
+          </Button>
+          <IconButton 
+            icon="delete" 
+            size={20}
+            onPress={() => handleDeleteProduct(product)}
+          />
+        </View>
+      </Card.Content>
+    </Card>
+  );
+
+  const renderTransactionCard = ({ item: transaction }: { item: Transaction }) => (
+    <Card style={styles.transactionCard}>
+      <Card.Content>
+        <View style={styles.transactionHeader}>
+          <View>
+            <Title style={styles.transactionAmount}>
+              +${transaction.amount.toFixed(2)}
+            </Title>
+            <Text style={styles.transactionDate}>
+              {new Date(transaction.date).toLocaleDateString()} {new Date(transaction.date).toLocaleTimeString()}
+            </Text>
+          </View>
+          <Chip 
+            mode="flat"
+            style={[
+              styles.statusChip,
+              { 
+                backgroundColor: transaction.status === 'completed' ? '#4CAF50' : 
+                                transaction.status === 'pending' ? '#FF9800' : '#F44336'
+              }
+            ]}
+            textStyle={{ color: 'white' }}
+          >
+            {transaction.status}
+          </Chip>
+        </View>
+        
+        {transaction.products.length > 0 && (
+          <Text style={styles.transactionProducts}>
+            Products: {transaction.products.join(', ')}
           </Text>
         )}
       </Card.Content>
     </Card>
   );
 
-  const renderTransaction = ({ item }: { item: Transaction }) => (
-    <Card style={styles.transactionCard}>
-      <Card.Content>
-        <View style={styles.transactionHeader}>
-          <View>
-            <Text variant="titleMedium">#{item.id}</Text>
-            <Text variant="bodySmall" style={styles.transactionDate}>
-              {new Date(item.date).toLocaleDateString()}
-            </Text>
-          </View>
-          <View style={styles.transactionRight}>
-            <Chip 
-              mode="outlined" 
-              compact
-              style={[
-                styles.statusChip,
-                item.status === 'completed' && styles.completedChip
-              ]}
-            >
-              {item.status}
-            </Chip>
-            <Text variant="titleMedium" style={styles.transactionAmount}>
-              ${item.amount.toFixed(2)}
-            </Text>
-          </View>
-        </View>
-        
-        <Text variant="bodySmall" style={styles.customerText}>
-          Customer: {item.customer}
-        </Text>
-        
-        <View style={styles.productsSection}>
-          {item.products.map((product, index) => (
-            <Text key={index} variant="bodySmall" style={styles.productText}>
-              • {product}
-            </Text>
-          ))}
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  const InventoryView = () => (
-    <View style={styles.inventoryContainer}>
-      <Card style={styles.inventoryCard}>
-        <Card.Content>
-          <View style={styles.sectionHeader}>
-            <Title style={styles.sectionTitle}>Inventory Management</Title>
-            <Button
-              mode="contained"
-              onPress={handleAddProduct}
-              style={styles.addButton}
-              icon="plus"
-            >
-              Add Product
-            </Button>
-          </View>
-          
-          <Text style={styles.sectionDescription}>
-            Manage your products and services. All items are automatically geotagged with your current location for proximity-based discovery.
-          </Text>
-
-          {loadingProducts ? (
-            <Text style={styles.loadingText}>Loading your products...</Text>
-          ) : products.length > 0 ? (
-            <FlatList
-              data={products}
-              renderItem={renderProduct}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.listContainer}
-            />
-          ) : (
-            <Text style={styles.emptyText}>No products yet. Add your first product to get started!</Text>
-          )}
-        </Card.Content>
-      </Card>
-    </View>
-  );
-
-  const TransactionsView = () => (
-    <FlatList
-      data={transactions}
-      renderItem={renderTransaction}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.listContainer}
-    />
-  );
-
-  if (!hasActiveSubscription) {
-    return (
-      <>
-        {renderSubscriptionWall()}
-        {renderPlanSelection()}
-        <MerchantPlanPurchaseModal
-          visible={showPurchaseModal}
-          onClose={handleClosePurchaseModal}
-          selectedPlan={selectedPlan}
-        />
-        <Portal>
-          <Modal 
-            visible={showProductModal} 
-            onDismiss={() => setShowProductModal(false)}
-            contentContainerStyle={styles.productModal}
-          >
-            <ScrollView style={styles.modalScrollView}>
-              <Card>
-                <Card.Content>
-                  <Title style={styles.modalTitle}>Add New Product</Title>
-                  
-                  <TextInput
-                    label="Product Title *"
-                    value={newProduct.title}
-                    onChangeText={(text) => setNewProduct(prev => ({ ...prev, title: text }))}
-                    style={styles.modalInput}
-                    mode="outlined"
-                  />
-
-                  <TextInput
-                    label="Description"
-                    value={newProduct.description}
-                    onChangeText={(text) => setNewProduct(prev => ({ ...prev, description: text }))}
-                    style={styles.modalInput}
-                    mode="outlined"
-                    multiline
-                    numberOfLines={3}
-                  />
-
-                  <TextInput
-                    label="Price *"
-                    value={newProduct.price}
-                    onChangeText={(text) => setNewProduct(prev => ({ ...prev, price: text }))}
-                    style={styles.modalInput}
-                    mode="outlined"
-                    keyboardType="decimal-pad"
-                    left={<TextInput.Affix text="$" />}
-                  />
-
-                  <TextInput
-                    label="Category"
-                    value={newProduct.category}
-                    onChangeText={(text) => setNewProduct(prev => ({ ...prev, category: text }))}
-                    style={styles.modalInput}
-                    mode="outlined"
-                    placeholder="e.g., Electronics, Furniture, Clothing"
-                  />
-
-                  <View style={styles.conditionSection}>
-                    <Text style={styles.conditionLabel}>Condition</Text>
-                    <View style={styles.conditionChips}>
-                      {['new', 'like_new', 'good', 'fair', 'poor'].map((condition) => (
-                        <Chip
-                          key={condition}
-                          mode={newProduct.condition === condition ? 'flat' : 'outlined'}
-                          selected={newProduct.condition === condition}
-                          onPress={() => setNewProduct(prev => ({ ...prev, condition: condition as any }))}
-                          style={styles.conditionChip}
-                        >
-                          {condition.replace('_', ' ').toUpperCase()}
-                        </Chip>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.locationSection}>
-                    <Text style={styles.locationLabel}>📍 Location (Auto-detected)</Text>
-                    {location ? (
-                      <View style={styles.locationInfo}>
-                        <Text style={styles.locationCoords}>
-                          {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
-                        </Text>
-                        <TextInput
-                          label="Location Name (Optional)"
-                          value={newProduct.location_name}
-                          onChangeText={(text) => setNewProduct(prev => ({ ...prev, location_name: text }))}
-                          style={styles.modalInput}
-                          mode="outlined"
-                          placeholder="e.g., Downtown Store, Home"
-                        />
-                        <TextInput
-                          label="Address (Optional)"
-                          value={newProduct.address}
-                          onChangeText={(text) => setNewProduct(prev => ({ ...prev, address: text }))}
-                          style={styles.modalInput}
-                          mode="outlined"
-                          placeholder="123 Main St, City, State"
-                        />
-                      </View>
-                    ) : (
-                      <Text style={styles.locationError}>
-                        Location not available. Please enable location services.
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.modalButtons}>
-                    <Button
-                      mode="outlined"
-                      onPress={() => setShowProductModal(false)}
-                      style={styles.modalButton}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      mode="contained"
-                      onPress={handleSaveProduct}
-                      style={styles.modalButton}
-                      disabled={!newProduct.title || !newProduct.price || !location}
-                    >
-                      Add Product
-                    </Button>
-                  </View>
-                </Card.Content>
-              </Card>
-            </ScrollView>
-          </Modal>
-        </Portal>
-      </>
-    );
-  }
-
-  if (hasActiveSubscription && !hasCompletedOnboarding) {
-    return (
-      <View style={styles.container}>
-        <Card style={styles.statusCard}>
-          <Card.Content>
-            <Title style={styles.statusTitle}>Complete Stripe Connect Onboarding</Title>
-            <Text style={styles.statusDescription}>
-              To access merchant features, please complete the Stripe Connect onboarding process.
-            </Text>
-            <Button
-              mode="contained"
-              onPress={startOnboarding}
-              loading={onboardingLoading}
-              disabled={onboardingLoading}
-              style={styles.subscribeButton}
-            >
-              Start Onboarding
-            </Button>
-          </Card.Content>
-        </Card>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>
-          My Storefront
-        </Text>
-        
-        <View style={styles.tabButtons}>
-          <Button
-            mode={activeTab === 'inventory' ? 'contained' : 'outlined'}
-            onPress={() => setActiveTab('inventory')}
-            style={styles.tabButton}
-          >
-            Inventory ({products.length})
-          </Button>
-          <Button
-            mode={activeTab === 'transactions' ? 'contained' : 'outlined'}
-            onPress={() => setActiveTab('transactions')}
-            style={styles.tabButton}
-          >
-            Transactions
-          </Button>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Title style={styles.headerTitle}>Your Store</Title>
+          <Text style={styles.headerSubtitle}>Manage your inventory and track sales</Text>
         </View>
-      </View>
 
-      {activeTab === 'inventory' ? <InventoryView /> : <TransactionsView />}
+        {/* Stats Cards */}
+        {renderStatsCards()}
+
+        {/* Recent Transactions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Title style={styles.sectionTitle}>Recent Sales</Title>
+            <Badge style={styles.badge}>{transactions.length}</Badge>
+          </View>
+          
+          {loadingTransactions ? (
+            <ProgressBar indeterminate style={styles.loader} />
+          ) : transactions.length === 0 ? (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Text style={styles.emptyText}>No sales yet. Your transactions will appear here in real-time! </Text>
+              </Card.Content>
+            </Card>
+          ) : (
+            <FlatList
+              data={transactions.slice(0, 5)}
+              keyExtractor={(item) => item.id}
+              renderItem={renderTransactionCard}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+
+        <Divider style={styles.divider} />
+
+        {/* Inventory */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Title style={styles.sectionTitle}>Your Products</Title>
+            <Badge style={styles.badge}>{products.length}</Badge>
+          </View>
+          
+          {loadingProducts ? (
+            <ProgressBar indeterminate style={styles.loader} />
+          ) : products.length === 0 ? (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Text style={styles.emptyText}>No products yet. Add your first product to start selling!</Text>
+              </Card.Content>
+            </Card>
+          ) : (
+            <FlatList
+              data={products}
+              keyExtractor={(item) => item.id}
+              renderItem={renderProductCard}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Floating Action Button */}
+      <FAB
+        style={styles.fab}
+        icon="plus"
+        label="Add Product"
+        onPress={() => {
+          setEditingProduct(null);
+          setProductForm({
+            title: '',
+            description: '',
+            price: '',
+            category: '',
+            condition: 'good',
+          });
+          setShowProductModal(true);
+        }}
+      />
+
+      {/* Product Modal */}
+      <Portal>
+        <Modal
+          visible={showProductModal}
+          onDismiss={() => setShowProductModal(false)}
+          contentContainerStyle={styles.modal}
+        >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Title style={styles.modalTitle}>
+              {editingProduct ? 'Edit Product' : 'Add New Product'}
+            </Title>
+            
+            <TextInput
+              label="Product Title *"
+              value={productForm.title}
+              onChangeText={(text) => setProductForm(prev => ({ ...prev, title: text }))}
+              style={styles.input}
+              mode="outlined"
+            />
+            
+            <TextInput
+              label="Description"
+              value={productForm.description}
+              onChangeText={(text) => setProductForm(prev => ({ ...prev, description: text }))}
+              style={styles.input}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+            />
+            
+            <TextInput
+              label="Price ($) *"
+              value={productForm.price}
+              onChangeText={(text) => setProductForm(prev => ({ ...prev, price: text }))}
+              style={styles.input}
+              mode="outlined"
+              keyboardType="numeric"
+            />
+            
+            <TextInput
+              label="Category"
+              value={productForm.category}
+              onChangeText={(text) => setProductForm(prev => ({ ...prev, category: text }))}
+              style={styles.input}
+              mode="outlined"
+              placeholder="e.g., Electronics, Clothing, Books"
+            />
+            
+            <Text style={styles.conditionLabel}>Condition</Text>
+            <View style={styles.conditionChips}>
+              {['new', 'like_new', 'good', 'fair', 'poor'].map((condition) => (
+                <Chip
+                  key={condition}
+                  mode={productForm.condition === condition ? 'flat' : 'outlined'}
+                  selected={productForm.condition === condition}
+                  onPress={() => setProductForm(prev => ({ ...prev, condition: condition as any }))}
+                  style={styles.conditionChip}
+                >
+                  {condition.replace('_', ' ').toUpperCase()}
+                </Chip>
+              ))}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <Button
+                mode="outlined"
+                onPress={() => setShowProductModal(false)}
+                style={styles.modalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleSaveProduct}
+                style={styles.modalButton}
+              >
+                {editingProduct ? 'Update' : 'Add'} Product
+              </Button>
+            </View>
+          </ScrollView>
+        </Modal>
+      </Portal>
     </View>
   );
 };
@@ -647,242 +616,71 @@ const StorefrontScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  subscriptionWall: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 16,
+  header: {
+    padding: 20,
+    paddingBottom: 10,
   },
-  subscriptionCard: {
-    margin: 16,
-    padding: 16,
-  },
-  cardTitle: {
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#6200ee',
+  headerTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#1a1a1a',
   },
-  cardDescription: {
-    textAlign: 'center',
-    marginBottom: 24,
+  headerSubtitle: {
+    fontSize: 16,
     color: '#666',
+    marginTop: 4,
   },
-  scrollView: {
-    flexGrow: 1,
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  subscriptionModal: {
+  statCard: {
+    flex: 1,
     padding: 16,
-    maxHeight: '80%',
-  },
-  planCard: {
-    marginVertical: 8,
-    padding: 8,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    alignItems: 'center',
     elevation: 2,
   },
-  selectedPlan: {
-    borderColor: '#6200ee',
-    borderWidth: 2,
-  },
-  planContent: {
-    padding: 16,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  planTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  planPrice: {
+  statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#6200ee',
+    color: '#1a1a1a',
   },
-  planInterval: {
-    textAlign: 'center',
+  statLabel: {
+    fontSize: 12,
     color: '#666',
+    marginTop: 4,
   },
-  planDescription: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: 16,
-  },
-  planNote: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  selectButton: {
-    marginTop: 8,
-  },
-  subscribeButton: {
-    marginTop: 24,
-    paddingVertical: 8,
-  },
-  modalTitle: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalDescription: {
-    textAlign: 'center',
-    marginBottom: 24,
-    color: '#666',
-  },
-  modalPlanCard: {
-    marginVertical: 8,
-    padding: 8,
-  },
-  statusCard: {
-    margin: 16,
-    padding: 16,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statusDescription: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: 16,
-  },
-  dailyAccessNote: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  cancelButton: {
-    marginTop: 16,
-  },
-  inventoryCard: {
-    margin: 16,
-    marginBottom: 8,
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
-  sectionDescription: {
-    color: '#666',
-    marginBottom: 16,
+  badge: {
+    marginLeft: 8,
+    backgroundColor: '#6200ea',
   },
-  addButton: {
-    paddingHorizontal: 16,
-  },
-  productModal: {
-    margin: 20,
-    maxHeight: '90%',
-  },
-  modalScrollView: {
-    maxHeight: '100%',
-  },
-  modalInput: {
-    marginBottom: 12,
-  },
-  conditionSection: {
-    marginBottom: 16,
-  },
-  conditionLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  conditionChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  conditionChip: {
-    marginRight: 4,
-    marginBottom: 4,
-  },
-  locationSection: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  locationLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  locationInfo: {
-    marginTop: 8,
-  },
-  locationCoords: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  locationError: {
-    color: '#d32f2f',
-    fontStyle: 'italic',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  modalButton: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  loadingText: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
+  divider: {
     marginVertical: 20,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    marginVertical: 20,
-  },
-  header: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  tabButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  tabButton: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  inventoryContainer: {
-    flex: 1,
-  },
-  listContainer: {
-    padding: 8,
+    marginHorizontal: 20,
   },
   productCard: {
-    margin: 8,
+    marginBottom: 12,
+    borderRadius: 12,
+    elevation: 2,
   },
   productHeader: {
     flexDirection: 'row',
@@ -893,72 +691,121 @@ const styles = StyleSheet.create({
   productInfo: {
     flex: 1,
   },
-  productCategory: {
-    color: '#666',
-    marginTop: 2,
-  },
-  productRight: {
-    alignItems: 'flex-end',
-  },
-  statusChip: {
-    marginBottom: 4,
-  },
-  activeChip: {
-    backgroundColor: '#e8f5e8',
+  productTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
   productPrice: {
-    color: '#6200ee',
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#4CAF50',
+    marginTop: 2,
+  },
+  productActions: {
+    alignItems: 'flex-end',
   },
   productDescription: {
-    marginBottom: 8,
     color: '#666',
+    marginBottom: 12,
   },
-  inventoryText: {
-    color: '#999',
-    fontStyle: 'italic',
+  productMeta: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  productButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    marginRight: 8,
   },
   transactionCard: {
-    margin: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    elevation: 1,
   },
   transactionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+  },
+  transactionAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4CAF50',
   },
   transactionDate: {
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
   },
-  transactionRight: {
-    alignItems: 'flex-end',
-  },
-  completedChip: {
-    backgroundColor: '#e8f5e8',
-  },
-  transactionAmount: {
-    color: '#6200ee',
-    fontWeight: 'bold',
-  },
-  customerText: {
+  transactionProducts: {
+    fontSize: 12,
     color: '#666',
-    marginBottom: 8,
+    marginTop: 8,
   },
-  productsSection: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+  statusChip: {
+    borderRadius: 16,
   },
-  productText: {
+  emptyCard: {
+    borderRadius: 12,
+    elevation: 1,
+  },
+  emptyText: {
+    textAlign: 'center',
     color: '#666',
-    marginBottom: 2,
+    fontSize: 16,
+  },
+  loader: {
+    marginVertical: 20,
   },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
+    backgroundColor: '#6200ea',
+  },
+  modal: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 16,
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    textAlign: 'center',
+    marginBottom: 20,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  input: {
+    marginBottom: 16,
+  },
+  conditionLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+    color: '#1a1a1a',
+  },
+  conditionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
+  conditionChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 8,
   },
 });
 
