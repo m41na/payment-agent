@@ -383,6 +383,152 @@ serve(async (req) => {
         break
       }
 
+      case 'charge.dispute.created': {
+        console.log(' Processing charge.dispute.created')
+        const dispute = event.data.object as Stripe.Dispute
+        
+        // Handle dispute creation - could trigger automatic refund processing
+        console.log('Dispute created for charge:', dispute.charge)
+        console.log('Dispute reason:', dispute.reason)
+        console.log('Dispute amount:', dispute.amount)
+        
+        // Log dispute for manual review - could extend to create dispute records
+        console.log(' Dispute logged for manual review:', dispute.id)
+        break
+      }
+
+      case 'refund.created': {
+        console.log(' Processing refund.created')
+        const refund = event.data.object as Stripe.Refund
+        
+        console.log('Refund details:', {
+          id: refund.id,
+          amount: refund.amount,
+          currency: refund.currency,
+          charge: refund.charge,
+          payment_intent: refund.payment_intent,
+          status: refund.status,
+          reason: refund.reason
+        })
+
+        try {
+          // Find the transaction associated with this refund
+          const { data: transaction, error: transactionError } = await supabaseClient
+            .from('pg_transactions')
+            .select('id, user_id')
+            .eq('stripe_payment_intent_id', refund.payment_intent)
+            .single()
+
+          if (transactionError || !transaction) {
+            console.error(' Transaction not found for refund:', refund.payment_intent)
+            break
+          }
+
+          console.log(' Found transaction:', transaction.id)
+
+          // Check if refund record already exists
+          const { data: existingRefund } = await supabaseClient
+            .from('pg_refunds')
+            .select('id')
+            .eq('stripe_refund_id', refund.id)
+            .single()
+
+          if (existingRefund) {
+            console.log(' Refund record already exists:', refund.id)
+            break
+          }
+
+          // Create refund record
+          const { error: insertError } = await supabaseClient
+            .from('pg_refunds')
+            .insert({
+              transaction_id: transaction.id,
+              stripe_refund_id: refund.id,
+              amount: refund.amount,
+              currency: refund.currency,
+              status: refund.status,
+              reason: refund.reason,
+              description: refund.metadata?.description || null,
+              created_at: new Date(refund.created * 1000).toISOString()
+            })
+
+          if (insertError) {
+            console.error(' Error creating refund record:', insertError)
+          } else {
+            console.log(' Refund record created successfully:', refund.id)
+          }
+        } catch (error) {
+          console.error(' Error processing refund.created:', error)
+        }
+        break
+      }
+
+      case 'refund.updated': {
+        console.log(' Processing refund.updated')
+        const refund = event.data.object as Stripe.Refund
+        
+        console.log('Refund update:', {
+          id: refund.id,
+          status: refund.status,
+          failure_reason: refund.failure_reason
+        })
+
+        try {
+          // Update refund status in database
+          const updateData: any = {
+            status: refund.status
+          }
+
+          // Set processed_at timestamp when refund succeeds
+          if (refund.status === 'succeeded') {
+            updateData.processed_at = new Date().toISOString()
+          }
+
+          const { error: updateError } = await supabaseClient
+            .from('pg_refunds')
+            .update(updateData)
+            .eq('stripe_refund_id', refund.id)
+
+          if (updateError) {
+            console.error(' Error updating refund status:', updateError)
+          } else {
+            console.log(' Refund status updated successfully:', refund.id, 'to', refund.status)
+          }
+        } catch (error) {
+          console.error(' Error processing refund.updated:', error)
+        }
+        break
+      }
+
+      case 'refund.failed': {
+        console.log(' Processing refund.failed')
+        const refund = event.data.object as Stripe.Refund
+        
+        console.log('Refund failed:', {
+          id: refund.id,
+          failure_reason: refund.failure_reason
+        })
+
+        try {
+          const { error: updateError } = await supabaseClient
+            .from('pg_refunds')
+            .update({ 
+              status: 'failed',
+              description: refund.failure_reason || 'Refund failed'
+            })
+            .eq('stripe_refund_id', refund.id)
+
+          if (updateError) {
+            console.error(' Error updating failed refund:', updateError)
+          } else {
+            console.log(' Refund marked as failed:', refund.id)
+          }
+        } catch (error) {
+          console.error(' Error processing refund.failed:', error)
+        }
+        break
+      }
+
       case 'product.created':
       case 'product.updated': {
         const product = event.data.object as Stripe.Product
