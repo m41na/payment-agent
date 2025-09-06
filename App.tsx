@@ -8,6 +8,8 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { ProfileProvider } from './src/contexts/ProfileContext';
+import { PreferencesProvider } from './src/contexts/PreferencesContext';
 import { PaymentProvider } from './src/contexts/PaymentContext';
 import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
 import { LocationProvider } from './src/contexts/LocationContext';
@@ -24,6 +26,7 @@ import CheckoutScreen from './src/screens/CheckoutScreen';
 import StorefrontScreen from './src/screens/StorefrontScreen';
 import PaymentMethodsScreen from './src/screens/PaymentMethodsScreen';
 import SellerDashboardScreen from './src/screens/SellerDashboardScreen';
+import MessagingScreen from './src/screens/MessagingScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -84,6 +87,9 @@ const MainTabs = () => {
             case 'Storefront':
               iconName = focused ? 'store' : 'store-outline';
               break;
+            case 'Messaging':
+              iconName = focused ? 'message' : 'message-outline';
+              break;
             default:
               iconName = 'circle';
           }
@@ -98,7 +104,7 @@ const MainTabs = () => {
       <Tab.Screen 
         name="Listing" 
         component={ListingScreen}
-        options={{ title: 'Browse' }}
+        options={{ title: 'Discover' }}
       />
       <Tab.Screen 
         name="Checkout" 
@@ -109,6 +115,11 @@ const MainTabs = () => {
         name="Storefront" 
         component={StorefrontScreen}
         options={{ title: 'Store' }}
+      />
+      <Tab.Screen 
+        name="Messaging" 
+        component={MessagingScreen}
+        options={{ title: 'Messages' }}
       />
       <Tab.Screen 
         name="Profile" 
@@ -151,24 +162,28 @@ export default function App() {
     <StripeProvider publishableKey={stripePublishableKey!}>
       <PaperProvider theme={theme}>
         <AuthProvider>
-          <OnboardingProvider>
-            <StripeConnectProvider>
-              <PaymentProvider>
-                <SubscriptionProvider>
-                  <LocationProvider>
-                    <InventoryProvider>
-                      <TransactionHistoryProvider>
-                        <NavigationContainer>
-                          <AppNavigator />
-                          <StatusBar style="light" />
-                        </NavigationContainer>
-                      </TransactionHistoryProvider>
-                    </InventoryProvider>
-                  </LocationProvider>
-                </SubscriptionProvider>
-              </PaymentProvider>
-            </StripeConnectProvider>
-          </OnboardingProvider>
+          <ProfileProvider>
+            <PreferencesProvider>
+              <OnboardingProvider>
+                <StripeConnectProvider>
+                  <PaymentProvider>
+                    <SubscriptionProvider>
+                      <LocationProvider>
+                        <InventoryProvider>
+                          <TransactionHistoryProvider>
+                            <NavigationContainer>
+                              <AppNavigator />
+                              <StatusBar style="light" />
+                            </NavigationContainer>
+                          </TransactionHistoryProvider>
+                        </InventoryProvider>
+                      </LocationProvider>
+                    </SubscriptionProvider>
+                  </PaymentProvider>
+                </StripeConnectProvider>
+              </OnboardingProvider>
+            </PreferencesProvider>
+          </ProfileProvider>
         </AuthProvider>
       </PaperProvider>
     </StripeProvider>

@@ -14,6 +14,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { useInventory, CreateProductData } from '../contexts/InventoryContext';
 import { useLocation } from '../contexts/LocationContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 
 interface AddProductModalProps {
   visible: boolean;
@@ -23,6 +24,7 @@ interface AddProductModalProps {
 const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) => {
   const { createProduct } = useInventory();
   const { location } = useLocation();
+  const { preferences } = usePreferences();
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState<CreateProductData>({
@@ -31,8 +33,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) =
     price: 0,
     category: '',
     condition: 'good',
-    latitude: location?.latitude || 0,
-    longitude: location?.longitude || 0,
+    latitude: preferences?.storefront_location?.latitude || location?.latitude || 0,
+    longitude: preferences?.storefront_location?.longitude || location?.longitude || 0,
     location_name: '',
     address: '',
     tags: [],
@@ -74,8 +76,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) =
       return;
     }
 
-    if (!location) {
-      Alert.alert('Error', 'Location is required. Please enable location services.');
+    // Use storefront location if available, otherwise require current location
+    const hasStorefrontLocation = preferences?.storefront_location?.latitude && preferences?.storefront_location?.longitude;
+    if (!hasStorefrontLocation && !location) {
+      Alert.alert('Error', 'Location is required. Please enable location services or set a storefront location in business preferences.');
       return;
     }
 
@@ -84,8 +88,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) =
       const productData: CreateProductData = {
         ...formData,
         price: formData.price,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         tags: tagsText ? tagsText.split(',').map(tag => tag.trim()).filter(Boolean) : [],
       };
 
@@ -98,8 +102,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) =
         price: 0,
         category: '',
         condition: 'good',
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: preferences?.storefront_location?.latitude || location?.latitude || 0,
+        longitude: preferences?.storefront_location?.longitude || location?.longitude || 0,
         location_name: '',
         address: '',
         tags: [],
@@ -239,12 +243,25 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ visible, onClose }) =
             <Text style={styles.helpText}>Separate tags with commas</Text>
           </View>
 
-          {location && (
+          {(location || (preferences?.storefront_location?.latitude && preferences?.storefront_location?.longitude)) && (
             <View style={styles.section}>
-              <Text style={styles.label}>Current Location</Text>
-              <Text style={styles.locationText}>
-                {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-              </Text>
+              <Text style={styles.label}>Product Location</Text>
+              {preferences?.storefront_location?.latitude && preferences?.storefront_location?.longitude ? (
+                <View>
+                  <Text style={styles.locationText}>
+                    Storefront: {preferences.storefront_location.latitude.toFixed(6)}, {preferences.storefront_location.longitude.toFixed(6)}
+                  </Text>
+                  {location && (
+                    <Text style={styles.helpText}>
+                      Current: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                    </Text>
+                  )}
+                </View>
+              ) : location ? (
+                <Text style={styles.locationText}>
+                  Current: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                </Text>
+              ) : null}
             </View>
           )}
         </ScrollView>

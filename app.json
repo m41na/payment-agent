@@ -35,6 +35,12 @@
           "merchantIdentifier": "merchant.com.paymentagent.app",
           "enableGooglePay": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to location when open and in the background."
+        }
       ]
     ]
   }

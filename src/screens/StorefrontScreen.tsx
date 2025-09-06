@@ -23,11 +23,15 @@ import {
   Divider,
   ProgressBar,
   Badge,
+  Menu,
+  SegmentedButtons,
 } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
 import { supabase } from '../services/supabase';
+import MapLocationPicker from '../components/MapLocationPicker';
+import EventCreationModal from '../components/EventCreationModal';
 
 interface Product {
   id: string;
@@ -60,6 +64,16 @@ interface Transaction {
   created_at: string;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const StorefrontScreen = () => {
   const { user } = useAuth();
   const { location } = useLocation();
@@ -67,13 +81,18 @@ const StorefrontScreen = () => {
   // State management
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [showConditionMenu, setShowConditionMenu] = useState(false);
   
   // Form state
   const [productForm, setProductForm] = useState({
@@ -82,6 +101,28 @@ const StorefrontScreen = () => {
     price: '',
     category: '',
     condition: 'good' as const,
+    useStoreLocation: true,
+    customLocation: {
+      latitude: 0,
+      longitude: 0,
+      address: '',
+      locationName: '',
+    },
+  });
+
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    date: '',
+    location: '',
+  });
+
+  // Store location state
+  const [storeLocation, setStoreLocation] = useState({
+    latitude: 0,
+    longitude: 0,
+    address: '',
+    locationName: 'My Store',
   });
 
   // Stats
@@ -91,6 +132,9 @@ const StorefrontScreen = () => {
     totalSales: 0,
     activeProducts: 0,
   });
+
+  // Content type state
+  const [contentType, setContentType] = useState<'products' | 'events'>('products');
 
   // Load products
   const loadProducts = useCallback(async () => {
@@ -171,6 +215,27 @@ const StorefrontScreen = () => {
     }
   }, [user]);
 
+  // Load events
+  const loadEvents = useCallback(async () => {
+    if (!user) return;
+    
+    setLoadingEvents(true);
+    try {
+      const { data, error } = await supabase
+        .from('pg_events')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load events');
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [user]);
+
   // Set up real-time subscription for transactions
   useEffect(() => {
     if (!user) return;
@@ -202,19 +267,20 @@ const StorefrontScreen = () => {
     useCallback(() => {
       loadProducts();
       loadTransactions();
-    }, [loadProducts, loadTransactions])
+      loadEvents();
+    }, [loadProducts, loadTransactions, loadEvents])
   );
 
   // Refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadProducts(), loadTransactions()]);
+    await Promise.all([loadProducts(), loadTransactions(), loadEvents()]);
     setRefreshing(false);
-  }, [loadProducts, loadTransactions]);
+  }, [loadProducts, loadTransactions, loadEvents]);
 
   // Product CRUD operations
   const handleSaveProduct = async () => {
-    if (!productForm.title || !productForm.price || !location) {
+    if (!productForm.title || !productForm.price || (!productForm.useStoreLocation && (!productForm.customLocation.latitude || !productForm.customLocation.longitude))) {
       Alert.alert('Error', 'Please fill in required fields and enable location');
       return;
     }
@@ -227,8 +293,10 @@ const StorefrontScreen = () => {
         category: productForm.category,
         condition: productForm.condition,
         seller_id: user!.id,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: productForm.useStoreLocation ? storeLocation.latitude : productForm.customLocation.latitude,
+        longitude: productForm.useStoreLocation ? storeLocation.longitude : productForm.customLocation.longitude,
+        location_name: productForm.useStoreLocation ? storeLocation.locationName : productForm.customLocation.locationName,
+        address: productForm.useStoreLocation ? storeLocation.address : productForm.customLocation.address,
         is_available: true,
         images: [],
         tags: [],
@@ -260,6 +328,13 @@ const StorefrontScreen = () => {
         price: '',
         category: '',
         condition: 'good',
+        useStoreLocation: true,
+        customLocation: {
+          latitude: 0,
+          longitude: 0,
+          address: '',
+          locationName: '',
+        },
       });
       setEditingProduct(null);
       setShowProductModal(false);
@@ -277,6 +352,13 @@ const StorefrontScreen = () => {
       price: (product.price / 100).toString(),
       category: product.category,
       condition: product.condition,
+      useStoreLocation: true,
+      customLocation: {
+        latitude: product.latitude,
+        longitude: product.longitude,
+        address: product.address || '',
+        locationName: product.location_name || '',
+      },
     });
     setShowProductModal(true);
   };
@@ -321,6 +403,95 @@ const StorefrontScreen = () => {
     } catch (error) {
       Alert.alert('Error', 'Failed to update product');
     }
+  };
+
+  // Event CRUD operations
+  const handleSaveEvent = async () => {
+    if (!eventForm.title || !eventForm.date || !eventForm.location) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      const eventData = {
+        title: eventForm.title,
+        description: eventForm.description,
+        date: eventForm.date,
+        location: eventForm.location,
+        seller_id: user!.id,
+      };
+
+      if (editingEvent) {
+        // Update existing event
+        const { error } = await supabase
+          .from('pg_events')
+          .update(eventData)
+          .eq('id', editingEvent.id);
+        
+        if (error) throw error;
+        Alert.alert('Success', 'Event updated!');
+      } else {
+        // Create new event
+        const { error } = await supabase
+          .from('pg_events')
+          .insert([eventData]);
+        
+        if (error) throw error;
+        Alert.alert('Success', 'Event added to your store!');
+      }
+
+      // Reset form and close modal
+      setEventForm({
+        title: '',
+        description: '',
+        date: '',
+        location: '',
+      });
+      setEditingEvent(null);
+      setShowEventModal(false);
+      loadEvents();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save event');
+    }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title,
+      description: event.description,
+      date: event.date,
+      location: event.location,
+    });
+    setShowEventModal(true);
+  };
+
+  const handleDeleteEvent = (event: Event) => {
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${event.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('pg_events')
+                .delete()
+                .eq('id', event.id);
+              
+              if (error) throw error;
+              Alert.alert('Success', 'Event deleted');
+              loadEvents();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete event');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Render components
@@ -439,6 +610,68 @@ const StorefrontScreen = () => {
     </Card>
   );
 
+  const renderEventCard = ({ item: event }: { item: Event }) => (
+    <Card style={styles.eventCard}>
+      <Card.Content>
+        <View style={styles.eventHeader}>
+          <View>
+            <Title style={styles.eventTitle}>{event.title}</Title>
+            <Text style={styles.eventDate}>
+              {new Date(event.date).toLocaleDateString()} {new Date(event.date).toLocaleTimeString()}
+            </Text>
+          </View>
+        </View>
+        
+        {event.description && (
+          <Paragraph style={styles.eventDescription}>{event.description}</Paragraph>
+        )}
+        
+        <View style={styles.eventButtons}>
+          <Button 
+            mode="outlined" 
+            onPress={() => handleEditEvent(event)}
+            style={styles.actionButton}
+            compact
+          >
+            Edit
+          </Button>
+          <IconButton 
+            icon="delete" 
+            size={20}
+            onPress={() => handleDeleteEvent(event)}
+          />
+        </View>
+      </Card.Content>
+    </Card>
+  );
+
+  const renderEventsTab = () => (
+    <View style={styles.eventsTab}>
+      <FlatList
+        data={events}
+        keyExtractor={(item) => item.id}
+        renderItem={renderEventCard}
+        scrollEnabled={false}
+        showsVerticalScrollIndicator={false}
+      />
+      <FAB
+        style={styles.fab}
+        icon="plus"
+        label="Add Event"
+        onPress={() => {
+          setEditingEvent(null);
+          setEventForm({
+            title: '',
+            description: '',
+            date: '',
+            location: '',
+          });
+          setShowEventModal(true);
+        }}
+      />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -482,50 +715,123 @@ const StorefrontScreen = () => {
 
         <Divider style={styles.divider} />
 
-        {/* Inventory */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Title style={styles.sectionTitle}>Your Products</Title>
-            <Badge style={styles.badge}>{products.length}</Badge>
-          </View>
-          
-          {loadingProducts ? (
-            <ProgressBar indeterminate style={styles.loader} />
-          ) : products.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Card.Content>
-                <Text style={styles.emptyText}>No products yet. Add your first product to start selling!</Text>
-              </Card.Content>
-            </Card>
-          ) : (
-            <FlatList
-              data={products}
-              keyExtractor={(item) => item.id}
-              renderItem={renderProductCard}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
+        {/* Content Type Selector */}
+        <View style={styles.contentSelector}>
+          <SegmentedButtons
+            value={contentType}
+            onValueChange={(value) => setContentType(value as 'products' | 'events')}
+            buttons={[
+              { value: 'products', label: 'Products' },
+              { value: 'events', label: 'Events' },
+            ]}
+            style={styles.segmentedButtons}
+          />
         </View>
-      </ScrollView>
 
-      {/* Floating Action Button */}
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        label="Add Product"
-        onPress={() => {
-          setEditingProduct(null);
-          setProductForm({
-            title: '',
-            description: '',
-            price: '',
-            category: '',
-            condition: 'good',
-          });
-          setShowProductModal(true);
-        }}
-      />
+        {/* Products Section */}
+        {contentType === 'products' && (
+          <View style={styles.contentSection}>
+            <View style={styles.sectionHeader}>
+              <Title style={styles.sectionTitle}>Products</Title>
+              <Badge style={styles.badge}>{products.length}</Badge>
+            </View>
+            
+            {loadingProducts ? (
+              <ProgressBar indeterminate style={styles.loader} />
+            ) : products.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Card.Content>
+                  <Text style={styles.emptyText}>No products yet</Text>
+                </Card.Content>
+              </Card>
+            ) : (
+              <FlatList
+                data={products}
+                keyExtractor={(item) => item.id}
+                renderItem={renderProductCard}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+            
+            <Button
+              mode="contained"
+              onPress={() => {
+                setEditingProduct(null);
+                setProductForm({
+                  title: '',
+                  description: '',
+                  price: '',
+                  category: '',
+                  condition: 'new',
+                  location_name: '',
+                  latitude: 0,
+                  longitude: 0,
+                });
+                setShowProductModal(true);
+              }}
+              style={styles.addButton}
+            >
+              Add Product
+            </Button>
+          </View>
+        )}
+
+        {/* Events Section */}
+        {contentType === 'events' && (
+          <View style={styles.contentSection}>
+            <View style={styles.sectionHeader}>
+              <Title style={styles.sectionTitle}>Events</Title>
+              <Badge style={styles.badge}>{events.length}</Badge>
+            </View>
+            
+            {loadingEvents ? (
+              <ProgressBar indeterminate style={styles.loader} />
+            ) : events.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Card.Content>
+                  <Text style={styles.emptyText}>No events yet</Text>
+                </Card.Content>
+              </Card>
+            ) : (
+              <FlatList
+                data={events}
+                keyExtractor={(item) => item.id}
+                renderItem={renderEventCard}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+            
+            <Button
+              mode="contained"
+              onPress={() => setShowEventModal(true)}
+              style={styles.addButton}
+            >
+              Create Event
+            </Button>
+            
+            <EventCreationModal
+              visible={showEventModal}
+              onDismiss={() => setShowEventModal(false)}
+              onSave={async (eventData) => {
+                try {
+                  const { error } = await supabase
+                    .from('pg_events')
+                    .insert([eventData]);
+                  
+                  if (error) throw error;
+                  Alert.alert('Success', 'Event created!');
+                  setShowEventModal(false);
+                  loadEvents();
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to create event');
+                }
+              }}
+            />
+          </View>
+        )}
+      </ScrollView>
 
       {/* Product Modal */}
       <Portal>
@@ -558,12 +864,12 @@ const StorefrontScreen = () => {
             />
             
             <TextInput
-              label="Price ($) *"
+              label="Price (USD) *"
               value={productForm.price}
               onChangeText={(text) => setProductForm(prev => ({ ...prev, price: text }))}
               style={styles.input}
               mode="outlined"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
             />
             
             <TextInput
@@ -572,22 +878,74 @@ const StorefrontScreen = () => {
               onChangeText={(text) => setProductForm(prev => ({ ...prev, category: text }))}
               style={styles.input}
               mode="outlined"
-              placeholder="e.g., Electronics, Clothing, Books"
             />
             
-            <Text style={styles.conditionLabel}>Condition</Text>
-            <View style={styles.conditionChips}>
-              {['new', 'like_new', 'good', 'fair', 'poor'].map((condition) => (
-                <Chip
-                  key={condition}
-                  mode={productForm.condition === condition ? 'flat' : 'outlined'}
-                  selected={productForm.condition === condition}
-                  onPress={() => setProductForm(prev => ({ ...prev, condition: condition as any }))}
-                  style={styles.conditionChip}
+            <View style={styles.conditionSection}>
+              <Text style={styles.label}>Condition *</Text>
+              <Menu
+                visible={showConditionMenu}
+                onDismiss={() => setShowConditionMenu(false)}
+                anchor={
+                  <Button
+                    mode="outlined"
+                    onPress={() => setShowConditionMenu(true)}
+                    style={styles.conditionButton}
+                  >
+                    {productForm.condition}
+                  </Button>
+                }
+              >
+                {['new', 'like_new', 'good', 'fair', 'poor'].map((condition) => (
+                  <Menu.Item
+                    key={condition}
+                    onPress={() => {
+                      setProductForm(prev => ({ ...prev, condition: condition as any }));
+                      setShowConditionMenu(false);
+                    }}
+                    title={condition.replace('_', ' ')}
+                  />
+                ))}
+              </Menu>
+            </View>
+            
+            <View style={styles.locationSection}>
+              <Text style={styles.label}>Product Location</Text>
+              <View style={styles.locationToggle}>
+                <Button
+                  mode={productForm.useStoreLocation ? 'contained' : 'outlined'}
+                  onPress={() => setProductForm(prev => ({ ...prev, useStoreLocation: true }))}
+                  style={styles.locationButton}
+                  compact
                 >
-                  {condition.replace('_', ' ').toUpperCase()}
-                </Chip>
-              ))}
+                  Store Location
+                </Button>
+                <Button
+                  mode={!productForm.useStoreLocation ? 'contained' : 'outlined'}
+                  onPress={() => setProductForm(prev => ({ ...prev, useStoreLocation: false }))}
+                  style={styles.locationButton}
+                  compact
+                >
+                  Custom Location
+                </Button>
+              </View>
+              
+              {!productForm.useStoreLocation && (
+                <MapLocationPicker
+                  location={productForm.customLocation}
+                  onLocationChange={(location) => 
+                    setProductForm(prev => ({ 
+                      ...prev, 
+                      customLocation: {
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        address: location.address || '',
+                        locationName: location.locationName || '',
+                      }
+                    }))
+                  }
+                  editable={true}
+                />
+              )}
             </View>
             
             <View style={styles.modalButtons}>
@@ -789,14 +1147,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#1a1a1a',
   },
-  conditionChips: {
+  conditionButton: {
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  conditionButtonContent: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  locationContainer: {
     marginBottom: 20,
   },
-  conditionChip: {
-    marginRight: 8,
+  locationLabel: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
+    color: '#1a1a1a',
+  },
+  locationOptions: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  locationChip: {
+    marginRight: 8,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -806,6 +1180,52 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     marginHorizontal: 8,
+  },
+  eventsTab: {
+    padding: 20,
+  },
+  eventCard: {
+    marginBottom: 12,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  eventDate: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  eventDescription: {
+    color: '#666',
+    marginBottom: 12,
+  },
+  eventButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contentSelector: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  segmentedButtons: {
+    width: '100%',
+  },
+  contentSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  addButton: {
+    marginTop: 16,
   },
 });
 
