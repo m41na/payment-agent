@@ -3,7 +3,7 @@ import { FlatList, View, Text, TextInput, KeyboardAvoidingView, Platform } from 
 import { Card, Button, LoadingSpinner } from '../../../components/shared';
 import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events';
 import { useMessagingContext } from '../../../providers/MessagingProvider';
-import { useAuthContext } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Message {
   id: string;
@@ -33,7 +33,7 @@ interface Conversation {
  * - User Profile: Contact management and preferences
  */
 export const IntegratedMessagingHub: React.FC = () => {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const { 
     conversations, 
     messages, 
@@ -114,7 +114,7 @@ export const IntegratedMessagingHub: React.FC = () => {
     
     await emitEvent(EVENT_TYPES.MESSAGE_SENT, {
       messageId: `msg_${Date.now()}`,
-      senderId: user?.id || '',
+      senderId: user.id || '',
       recipientId: conversationId,
       conversationId,
       messageType: 'text',
@@ -157,8 +157,8 @@ export const IntegratedMessagingHub: React.FC = () => {
 
       await emitEvent(EVENT_TYPES.MESSAGE_SENT, {
         messageId: `msg_${Date.now()}`,
-        senderId: user?.id || '',
-        recipientId: selectedConversationData?.participants.find(p => p !== user?.id) || '',
+        senderId: user.id || '',
+        recipientId: selectedConversationData?.participants.find(p => p !== user.id) || '',
         conversationId: selectedConversation,
         messageType: 'text',
         timestamp: new Date(),
@@ -186,7 +186,7 @@ export const IntegratedMessagingHub: React.FC = () => {
   };
 
   const renderMessage = ({ item: message }: { item: Message }) => {
-    const isOwnMessage = message.senderId === user?.id;
+    const isOwnMessage = message.senderId === user.id;
     const isSystemMessage = message.type === 'system';
     const isTransactionMessage = message.type === 'transaction';
 

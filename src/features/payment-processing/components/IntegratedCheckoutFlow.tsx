@@ -5,7 +5,7 @@ import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events'
 import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
 import { usePaymentProcessingContext } from '../../../providers/PaymentProcessingProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
-import { useAuthContext } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface CartItem {
   id: string;
@@ -33,7 +33,7 @@ interface ReferralDiscount {
  * - Event System: Real-time updates and cross-feature notifications
  */
 export const IntegratedCheckoutFlow: React.FC = () => {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const { cartItems, cartTotal, clearCart } = useShoppingCartContext();
   const { processPayment, isProcessing } = usePaymentProcessingContext();
   const { applyReferralCode, processReferralReward } = useReferralSystemContext();
@@ -62,7 +62,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     ? cartTotal - appliedReferral.discountAmount
     : cartTotal;
 
-  const merchantGroups = cartItems.reduce((groups, item) => {
+  const merchantGroups = (cartItems || []).reduce((groups, item) => {
     if (!groups[item.merchantId]) {
       groups[item.merchantId] = {
         merchantId: item.merchantId,
@@ -106,7 +106,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     await emitEvent(EVENT_TYPES.CHECKOUT_INITIATED, {
       userId: user?.id || '',
       cartTotal: finalTotal,
-      itemCount: cartItems.length,
+      itemCount: (cartItems || []).length,
       merchantIds: Object.keys(merchantGroups),
       timestamp: new Date(),
     });
@@ -163,7 +163,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
           }
 
           // Emit product purchased events for each item
-          for (const item of cartItems.filter(i => i.merchantId === result.merchantId)) {
+          for (const item of (cartItems || []).filter(i => i.merchantId === result.merchantId)) {
             await emitEvent(EVENT_TYPES.PRODUCT_PURCHASED, {
               userId: user?.id || '',
               productId: item.productId,
@@ -401,7 +401,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     </View>
   );
 
-  if (cartItems.length === 0) {
+  if ((cartItems || []).length === 0) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>

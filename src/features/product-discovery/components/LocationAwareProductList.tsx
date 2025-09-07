@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { FlatList, View, Text, RefreshControl } from 'react-native';
 import { Card, Button, LoadingSpinner } from '../../../components/shared';
 import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events';
-import { useLocationContext } from '../../../contexts/LocationContext';
+import { useLocation } from '../../../contexts/LocationContext';
 import { useProductDiscoveryContext } from '../../../providers/ProductDiscoveryProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
 
@@ -29,7 +29,7 @@ interface Product {
  * - Event System: Real-time updates and cross-feature communication
  */
 export const LocationAwareProductList: React.FC = () => {
-  const { currentLocation, isLocationEnabled } = useLocationContext();
+  const { location, loading: locationLoading } = useLocation();
   const { products, searchProducts, isLoading, refreshProducts } = useProductDiscoveryContext();
   const { getUserReferralBoosts } = useReferralSystemContext();
   const emitEvent = useEventEmitter();
@@ -64,10 +64,10 @@ export const LocationAwareProductList: React.FC = () => {
       const enhanced = { ...product };
 
       // Add distance calculation if location is available
-      if (currentLocation && product.location) {
+      if (location && product.location) {
         enhanced.distance = calculateDistance(
-          currentLocation.latitude,
-          currentLocation.longitude,
+          location.latitude,
+          location.longitude,
           product.location.latitude,
           product.location.longitude
         );
@@ -83,7 +83,7 @@ export const LocationAwareProductList: React.FC = () => {
       const bScore = calculateProductScore(b);
       return bScore - aScore; // Higher score first
     });
-  }, [products, currentLocation, referralBoosts]);
+  }, [products, location, referralBoosts]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in kilometers
@@ -128,16 +128,16 @@ export const LocationAwareProductList: React.FC = () => {
   };
 
   const handleLocationBasedRefresh = async () => {
-    if (!currentLocation) return;
+    if (!location) return;
 
     try {
       await searchProducts({
-        location: currentLocation,
+        location,
         radius: 10, // 10km radius
         sortBy: 'proximity',
       });
     } catch (error) {
-      console.error('Failed to refresh location-based products:', error);
+      console.error('Location-based refresh failed:', error);
     }
   };
 
@@ -230,10 +230,10 @@ export const LocationAwareProductList: React.FC = () => {
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-      {!isLocationEnabled && (
+      {locationLoading && (
         <Card variant="outlined" style={{ marginBottom: 16, backgroundColor: '#FFF3CD' }}>
           <Text style={{ color: '#856404', textAlign: 'center' }}>
-            Enable location services for personalized product discovery
+            Loading location...
           </Text>
         </Card>
       )}
