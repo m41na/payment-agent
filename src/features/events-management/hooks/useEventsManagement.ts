@@ -121,7 +121,7 @@ export function useEventsManagement(options: UseEventsManagementOptions = {}): U
     onConnectionStateChange,
   } = options;
 
-  // Initialize hooks
+  // Initialize hooks - MUST be at top level
   const eventsHook = useEvents({
     initialFilters,
     pageSize,
@@ -129,6 +129,9 @@ export function useEventsManagement(options: UseEventsManagementOptions = {}): U
   });
 
   const userRSVPsHook = useUserRSVPs();
+  
+  // Move useRSVP to top level to fix Rules of Hooks violation
+  const rsvpHook = useRSVP();
 
   const syncHook = useEventSync({
     autoSubscribeToUserEvents: enableRealTimeSync && autoSubscribeToUserEvents,
@@ -185,9 +188,8 @@ export function useEventsManagement(options: UseEventsManagementOptions = {}): U
     status: AttendeeStatus,
     notes?: string
   ): Promise<RSVPOperationResult> => {
-    // Use a temporary RSVP hook for this operation
-    const tempRSVPHook = useRSVP();
-    const result = await tempRSVPHook.rsvpToEvent(eventId, status, notes);
+    // Use the hook initialized at top level
+    const result = await rsvpHook.rsvpToEvent(eventId, status, notes);
     
     if (result.success) {
       // Refresh user RSVPs after successful RSVP
@@ -200,8 +202,8 @@ export function useEventsManagement(options: UseEventsManagementOptions = {}): U
 
   // Enhanced remove RSVP function
   const enhancedRemoveRSVP = async (eventId: string): Promise<RSVPOperationResult> => {
-    const tempRSVPHook = useRSVP();
-    const result = await tempRSVPHook.removeRSVP(eventId);
+    // Use the hook initialized at top level
+    const result = await rsvpHook.removeRSVP(eventId);
     
     if (result.success) {
       // Refresh user RSVPs after successful removal

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { PaymentService } from '../services/PaymentService';
 import { CheckoutService } from '../services/CheckoutService';
 import { PaymentMethod, Transaction, CheckoutOptions, CheckoutFlow, PaymentResult } from '../types';

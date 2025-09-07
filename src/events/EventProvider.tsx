@@ -1,6 +1,5 @@
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { EventBus, EventBusInterface } from './EventBus';
-import { useEventBus, useEventEmitter } from './useEventBus';
 import { EVENT_TYPES } from './EventTypes';
 
 /**
@@ -12,7 +11,6 @@ import { EVENT_TYPES } from './EventTypes';
 
 interface EventContextType {
   eventBus: EventBusInterface;
-  emitEvent: ReturnType<typeof useEventEmitter>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -22,8 +20,6 @@ interface EventProviderProps {
 }
 
 export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
-  const emitEvent = useEventEmitter();
-
   // Set up system-level event listeners for cross-feature integration
   useEffect(() => {
     // Example: Location updates trigger product discovery refresh
@@ -82,7 +78,6 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
 
   const contextValue: EventContextType = {
     eventBus: EventBus,
-    emitEvent,
   };
 
   return (

@@ -99,6 +99,39 @@ export enum AttendeeStatus {
   NOT_GOING = 'not_going',
 }
 
+export enum ConnectionState {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+}
+
+export enum EventSyncEventType {
+  EVENT_CREATED = 'event_created',
+  EVENT_UPDATED = 'event_updated',
+  EVENT_DELETED = 'event_deleted',
+  ATTENDEE_ADDED = 'attendee_added',
+  ATTENDEE_UPDATED = 'attendee_updated',
+  ATTENDEE_REMOVED = 'attendee_removed',
+}
+
+export interface EventSyncEvent {
+  id: string;
+  type: EventSyncEventType;
+  timestamp: string;
+  data: {
+    event?: Event;
+    attendee?: EventAttendee;
+  };
+}
+
+export enum EventSortBy {
+  DATE_ASC = 'date_asc',
+  DATE_DESC = 'date_desc',
+  DISTANCE = 'distance',
+  POPULARITY = 'popularity',
+  CREATED_AT = 'created_at',
+}
+
 // Operation types
 export interface CreateEventData {
   title: string;

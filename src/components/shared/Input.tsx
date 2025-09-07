@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, ViewStyle, TextStyle } from 'react-native';
+import { View, TextInput, Text, ViewStyle, TextStyle, TextInputProps } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 
 export interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -7,7 +7,7 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   error?: string;
   helperText?: string;
   variant?: 'default' | 'outlined' | 'filled';
-  size?: 'small' | 'medium' | 'large';
+  size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
@@ -27,7 +27,7 @@ export const Input: React.FC<InputProps> = ({
   error,
   helperText,
   variant = 'default',
-  size = 'medium',
+  size = 'md',
   fullWidth = true,
   containerStyle,
   inputStyle,
@@ -41,41 +41,40 @@ export const Input: React.FC<InputProps> = ({
   const getContainerStyle = (): ViewStyle => {
     return {
       width: fullWidth ? '100%' : 'auto',
-      marginBottom: theme.spacing.small,
+      marginBottom: theme.spacing.sm,
     };
   };
 
   const getLabelStyle = (): TextStyle => {
     return {
-      fontSize: theme.typography.fontSize.small,
+      ...theme.typography.body,
       fontWeight: '500',
       color: error ? theme.colors.error : theme.colors.text,
-      marginBottom: theme.spacing.xsmall,
+      marginBottom: theme.spacing.xs,
     };
   };
 
   const getInputStyle = (): ViewStyle & TextStyle => {
     const baseStyle: ViewStyle & TextStyle = {
-      fontSize: theme.typography.fontSize.medium,
+      ...theme.typography.body,
       color: theme.colors.text,
-      fontFamily: theme.typography.fontFamily.regular,
     };
 
     // Size variations
     const sizeStyles: Record<string, ViewStyle> = {
-      small: {
-        paddingHorizontal: theme.spacing.medium,
-        paddingVertical: theme.spacing.small,
+      sm: {
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing.xs,
         minHeight: 36,
       },
-      medium: {
-        paddingHorizontal: theme.spacing.medium,
-        paddingVertical: theme.spacing.medium,
+      md: {
+        paddingHorizontal: theme.spacing.md,
+        paddingVertical: theme.spacing.sm,
         minHeight: 44,
       },
-      large: {
-        paddingHorizontal: theme.spacing.large,
-        paddingVertical: theme.spacing.large,
+      lg: {
+        paddingHorizontal: theme.spacing.lg,
+        paddingVertical: theme.spacing.md,
         minHeight: 52,
       },
     };
@@ -98,12 +97,12 @@ export const Input: React.FC<InputProps> = ({
           : isFocused 
             ? theme.colors.primary 
             : theme.colors.border,
-        borderRadius: theme.borderRadius.medium,
+        borderRadius: theme.borderRadius.md,
         backgroundColor: 'transparent',
       },
       filled: {
         backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.medium,
+        borderRadius: theme.borderRadius.md,
         borderWidth: 1,
         borderColor: error 
           ? theme.colors.error 
@@ -122,9 +121,9 @@ export const Input: React.FC<InputProps> = ({
 
   const getHelperTextStyle = (): TextStyle => {
     return {
-      fontSize: theme.typography.fontSize.xsmall,
+      ...theme.typography.caption,
       color: error ? theme.colors.error : theme.colors.textSecondary,
-      marginTop: theme.spacing.xsmall,
+      marginTop: theme.spacing.xs,
     };
   };
 

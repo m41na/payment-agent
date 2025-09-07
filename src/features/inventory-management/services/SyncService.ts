@@ -133,9 +133,10 @@ export class SyncService {
 
   // Utility method to handle connection status
   onConnectionStateChange(callback: (state: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED') => void): void {
-    supabase.realtime.onOpen(() => callback('SUBSCRIBED'));
-    supabase.realtime.onClose(() => callback('CLOSED'));
-    supabase.realtime.onError(() => callback('TIMED_OUT'));
+    // Note: Modern Supabase realtime uses channel-based subscriptions
+    // Connection state is handled per-channel, not globally on the realtime client
+    // This method is kept for compatibility but doesn't actively monitor connection state
+    console.warn('onConnectionStateChange: Modern Supabase realtime uses channel-based subscriptions. Monitor individual channel states instead.');
   }
 
   // Method to manually trigger a sync (useful for error recovery)

@@ -4,8 +4,8 @@ import { useTheme } from '../../providers/ThemeProvider';
 
 export interface CardProps {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'outlined' | 'filled';
-  padding?: 'none' | 'small' | 'medium' | 'large';
+  variant?: 'default' | 'elevated' | 'outlined' | 'flat';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
   onPress?: () => void;
   style?: ViewStyle;
   testID?: string;
@@ -21,7 +21,7 @@ export interface CardProps {
 export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',
-  padding = 'medium',
+  padding = 'md',
   onPress,
   style,
   testID,
@@ -30,21 +30,21 @@ export const Card: React.FC<CardProps> = ({
 
   const getCardStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      borderRadius: theme.borderRadius.large,
+      borderRadius: theme.borderRadius.lg,
       backgroundColor: theme.colors.surface,
     };
 
     // Padding variations
     const paddingStyles: Record<string, ViewStyle> = {
       none: {},
-      small: {
-        padding: theme.spacing.small,
+      sm: {
+        padding: theme.spacing.sm,
       },
-      medium: {
-        padding: theme.spacing.medium,
+      md: {
+        padding: theme.spacing.md,
       },
-      large: {
-        padding: theme.spacing.large,
+      lg: {
+        padding: theme.spacing.lg,
       },
     };
 
@@ -55,21 +55,14 @@ export const Card: React.FC<CardProps> = ({
       },
       elevated: {
         backgroundColor: theme.colors.surface,
-        shadowColor: theme.colors.shadow,
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        ...theme.shadows.md,
       },
       outlined: {
         backgroundColor: theme.colors.surface,
         borderWidth: 1,
         borderColor: theme.colors.border,
       },
-      filled: {
+      flat: {
         backgroundColor: theme.colors.background,
       },
     };

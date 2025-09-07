@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, Text, ViewStyle, Modal } from 'react-native';
+import { View, ActivityIndicator, Text, ViewStyle, TextStyle, Modal } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 
 export interface LoadingSpinnerProps {
@@ -49,14 +49,14 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
     return {
       ...baseStyle,
-      padding: theme.spacing.large,
+      padding: theme.spacing.lg,
     };
   };
 
   const getTextStyle = (): TextStyle => {
     return {
-      marginTop: theme.spacing.medium,
-      fontSize: theme.typography.fontSize.medium,
+      marginTop: theme.spacing.md,
+      ...theme.typography.body,
       color: overlay ? theme.colors.white : theme.colors.text,
       textAlign: 'center',
     };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { SafeAreaView, StatusBar } from 'react-native';
-import MinimalFoundationTest from './src/test/MinimalFoundationTest';
+import { MinimalFoundationTest } from './src/test/MinimalFoundationTest';
 
 /**
  * Main App Component - Minimal Foundation Test

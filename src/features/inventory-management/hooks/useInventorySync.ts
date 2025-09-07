@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SyncService, SubscriptionCallback } from '../services/SyncService';
 import { Product, ProductSubscriptionEvent } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const syncService = new SyncService();
 

@@ -3,7 +3,7 @@ import { useProducts } from './useProducts';
 import { useInventorySync } from './useInventorySync';
 import { InventoryService } from '../services/InventoryService';
 import { Product, CreateProductData, UpdateProductData, ProductFilters } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const inventoryService = new InventoryService();
 

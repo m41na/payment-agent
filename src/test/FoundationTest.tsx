@@ -58,19 +58,19 @@ const FoundationTestContent: React.FC = () => {
             title="Primary"
             onPress={() => console.log('Primary pressed')}
             variant="primary"
-            size="small"
+            size="sm"
           />
           <Button
             title="Secondary"
             onPress={() => console.log('Secondary pressed')}
             variant="secondary"
-            size="small"
+            size="sm"
           />
           <Button
             title="Outline"
             onPress={() => console.log('Outline pressed')}
             variant="outline"
-            size="small"
+            size="sm"
           />
         </View>
       </Card>

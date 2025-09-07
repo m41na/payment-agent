@@ -67,15 +67,8 @@ export const Modal: React.FC<ModalProps> = ({
 
     return {
       backgroundColor: theme.colors.surface,
-      borderRadius: size === 'fullscreen' ? 0 : theme.borderRadius.large,
-      shadowColor: theme.colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      elevation: 8,
+      borderRadius: size === 'fullscreen' ? 0 : theme.borderRadius.lg,
+      ...theme.shadows.lg,
       ...sizeStyles[size],
     };
   };
@@ -86,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: size === 'fullscreen' ? 0 : theme.spacing.medium,
+      padding: size === 'fullscreen' ? 0 : theme.spacing.md,
     };
   };
 
@@ -95,9 +88,9 @@ export const Modal: React.FC<ModalProps> = ({
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: theme.spacing.large,
-      paddingTop: theme.spacing.large,
-      paddingBottom: theme.spacing.medium,
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.lg,
+      paddingBottom: theme.spacing.md,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.border,
     };
@@ -105,8 +98,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   const getTitleStyle = (): TextStyle => {
     return {
-      fontSize: theme.typography.fontSize.large,
-      fontWeight: '600',
+      ...theme.typography.h3,
       color: theme.colors.text,
       flex: 1,
     };
@@ -115,7 +107,7 @@ export const Modal: React.FC<ModalProps> = ({
   const getContentStyle = (): ViewStyle => {
     return {
       flex: 1,
-      padding: theme.spacing.large,
+      padding: theme.spacing.lg,
     };
   };
 
@@ -124,12 +116,12 @@ export const Modal: React.FC<ModalProps> = ({
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      paddingHorizontal: theme.spacing.large,
-      paddingBottom: theme.spacing.large,
-      paddingTop: theme.spacing.medium,
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
-      gap: theme.spacing.medium,
+      gap: theme.spacing.md,
     };
   };
 
@@ -161,7 +153,7 @@ export const Modal: React.FC<ModalProps> = ({
             <View style={getHeaderStyle()}>
               {title && <Text style={getTitleStyle()}>{title}</Text>}
               {showCloseButton && (
-                <TouchableOpacity onPress={onClose} style={{ padding: theme.spacing.small }}>
+                <TouchableOpacity onPress={onClose} style={{ padding: theme.spacing.sm }}>
                   <Text style={{ fontSize: 18, color: theme.colors.textSecondary }}>✕</Text>
                 </TouchableOpacity>
               )}
@@ -179,10 +171,10 @@ export const Modal: React.FC<ModalProps> = ({
               {actions.map((action, index) => (
                 <Button
                   key={index}
-                  title={action.title}
                   onPress={action.onPress}
                   variant={action.variant || 'primary'}
-                  size="medium"
+                  size="md"
+                  title={action.title}
                 />
               ))}
             </View>

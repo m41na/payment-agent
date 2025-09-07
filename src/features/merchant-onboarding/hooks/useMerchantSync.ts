@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MerchantSyncService, MerchantSubscriptionCallback } from '../services/MerchantSyncService';
 import { MerchantSubscriptionEvent, StripeConnectAccount } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const merchantSyncService = new MerchantSyncService();
 

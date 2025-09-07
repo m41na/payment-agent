@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ProductService } from '../services/ProductService';
 import { Product, CreateProductData, UpdateProductData, ProductFilters, ProductSearchResult, InventoryError } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const productService = new ProductService();
 
