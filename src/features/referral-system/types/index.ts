@@ -201,6 +201,33 @@ export interface ReferralUserData {
   lifetime_referrals: number;
 }
 
+// Context Type for Provider
+export interface ReferralSystemContextType {
+  // State
+  referralCode: ReferralCode | null;
+  referralCodeLoading: boolean;
+  referralCodeError: ReferralError | null;
+  referralStats: ReferralStats | null;
+  referralStatsLoading: boolean;
+  referralStatsError: ReferralError | null;
+  operationLoading: boolean;
+  operationError: ReferralError | null;
+
+  // Actions
+  generateReferralCode: (request?: ReferralCodeRequest) => Promise<ReferralCodeResult>;
+  refreshReferralCode: () => Promise<void>;
+  processReferralSignup: (request: ReferralSignupRequest) => Promise<ReferralOperationResult>;
+  awardConversionPoints: (
+    referralId: string,
+    eventType: ReferralEventType,
+    metadata?: Record<string, any>
+  ) => Promise<ReferralOperationResult>;
+  refreshReferralStats: () => Promise<void>;
+  clearErrors: () => void;
+  getUserReferralData: () => ReferralUserData | null;
+  getUserReferralBoosts: () => Promise<ReferralBoostData[]>;
+}
+
 // Error Handling
 export interface ReferralError {
   code: 'VALIDATION_ERROR' | 'NETWORK_ERROR' | 'NOT_FOUND' | 'UNAUTHORIZED' | 'CODE_EXISTS' | 'CODE_EXPIRED' | 'MAX_USES_EXCEEDED' | 'SELF_REFERRAL' | 'ALREADY_REFERRED';

@@ -1,212 +1,128 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { MerchantSyncService, MerchantSubscriptionCallback } from '../services/MerchantSyncService';
-import { MerchantSubscriptionEvent, StripeConnectAccount } from '../types';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  StripeConnectAccount,
+  MerchantSubscriptionEvent,
+} from '../types';
 
-const merchantSyncService = new MerchantSyncService();
+// DISABLED: MerchantSyncService not needed for mobile-only app
+// Real-time merchant sync is overkill for single-device usage
+// Using local-first approach instead
 
-export const useMerchantSync = () => {
+export const useMerchantSync = (userId?: string) => {
+  const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED'>('CLOSED');
+  const [subscriptionCount, setSubscriptionCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [lastEvent, setLastEvent] = useState<MerchantSubscriptionEvent | null>(null);
-  const subscriptionIdRef = useRef<string | null>(null);
-  const { user } = useAuth();
 
-  const handleMerchantEvent = useCallback((event: MerchantSubscriptionEvent) => {
+  // No-op implementations for mobile-only app
+  const subscribeToMerchantAccount = useCallback(
+    async (callback: (event: MerchantSubscriptionEvent) => void): Promise<string> => {
+      console.log('[MerchantSync] DISABLED: subscribeToMerchantAccount called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
+
+  const subscribeToAllMerchantAccounts = useCallback(
+    async (callback: (event: MerchantSubscriptionEvent) => void): Promise<string> => {
+      console.log('[MerchantSync] DISABLED: subscribeToAllMerchantAccounts called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
+
+  const unsubscribe = useCallback(
+    async (subscriptionId: string): Promise<void> => {
+      console.log('[MerchantSync] DISABLED: unsubscribe called but sync is disabled');
+    },
+    []
+  );
+
+  const unsubscribeAll = useCallback(
+    async (): Promise<void> => {
+      console.log('[MerchantSync] DISABLED: unsubscribeAll called but sync is disabled');
+    },
+    []
+  );
+
+  const isSubscribed = useCallback(
+    (subscriptionId: string): boolean => {
+      console.log('[MerchantSync] DISABLED: isSubscribed called but sync is disabled');
+      return false; // Always return false since sync is disabled
+    },
+    []
+  );
+
+  const getActiveSubscriptions = useCallback(
+    (): string[] => {
+      console.log('[MerchantSync] DISABLED: getActiveSubscriptions called but sync is disabled');
+      return []; // Always return empty array
+    },
+    []
+  );
+
+  const forceSyncMerchantAccount = useCallback(
+    async (): Promise<StripeConnectAccount | null> => {
+      console.log('[MerchantSync] DISABLED: forceSyncMerchantAccount called but sync is disabled');
+      return null; // Return null since sync is disabled
+    },
+    []
+  );
+
+  const testConnection = useCallback(
+    async (): Promise<boolean> => {
+      console.log('[MerchantSync] DISABLED: testConnection called but sync is disabled');
+      return false; // Always return false since sync is disabled
+    },
+    []
+  );
+
+  const cleanup = useCallback(
+    async (): Promise<void> => {
+      console.log('[MerchantSync] DISABLED: cleanup called but sync is disabled');
+    },
+    []
+  );
+
+  // Initialize with disconnected state since sync is disabled
+  useEffect(() => {
+    setIsConnected(false);
+    setConnectionState('CLOSED');
+    setSubscriptionCount(0);
     setLastSyncTime(new Date());
-    setLastEvent(event);
-    setSyncError(null);
-    
-    console.log('Merchant event received:', event);
   }, []);
-
-  const subscribeToMerchantAccount = useCallback(async (callback?: MerchantSubscriptionCallback) => {
-    if (!user) return;
-
-    try {
-      setSyncError(null);
-      
-      // Unsubscribe from existing subscription if any
-      if (subscriptionIdRef.current) {
-        await merchantSyncService.unsubscribe(subscriptionIdRef.current);
-      }
-
-      // Create new subscription
-      const subscriptionId = await merchantSyncService.subscribeToMerchantAccount(
-        user.id,
-        callback || handleMerchantEvent
-      );
-      
-      subscriptionIdRef.current = subscriptionId;
-      setConnectionState('SUBSCRIBED');
-      
-      return subscriptionId;
-    } catch (error: any) {
-      console.error('Error subscribing to merchant account:', error);
-      setSyncError(error.message);
-      setConnectionState('TIMED_OUT');
-    }
-  }, [user, handleMerchantEvent]);
-
-  const unsubscribe = useCallback(async () => {
-    if (subscriptionIdRef.current) {
-      try {
-        await merchantSyncService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-        setConnectionState('CLOSED');
-      } catch (error: any) {
-        console.error('Error unsubscribing:', error);
-        setSyncError(error.message);
-      }
-    }
-  }, []);
-
-  const forceSync = useCallback(async () => {
-    if (!user) return null;
-
-    try {
-      setSyncError(null);
-      const account = await merchantSyncService.forceSyncMerchantAccount(user.id);
-      setLastSyncTime(new Date());
-      return account;
-    } catch (error: any) {
-      console.error('Error force syncing:', error);
-      setSyncError(error.message);
-      return null;
-    }
-  }, [user]);
-
-  const testConnection = useCallback(async () => {
-    try {
-      setSyncError(null);
-      const isHealthy = await merchantSyncService.testConnection();
-      return isHealthy;
-    } catch (error: any) {
-      console.error('Connection test failed:', error);
-      setSyncError(error.message);
-      return false;
-    }
-  }, []);
-
-  // Set up connection state monitoring
-  useEffect(() => {
-    merchantSyncService.onConnectionStateChange(setConnectionState);
-    
-    return () => {
-      merchantSyncService.offConnectionStateChange(setConnectionState);
-    };
-  }, []);
-
-  // Auto-subscribe when user changes
-  useEffect(() => {
-    if (user) {
-      subscribeToMerchantAccount();
-    } else {
-      unsubscribe();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      unsubscribe();
-    };
-  }, [user, subscribeToMerchantAccount, unsubscribe]);
-
-  // Computed values
-  const isConnected = connectionState === 'SUBSCRIBED';
-  const hasError = syncError !== null;
-  const connectionHealth = merchantSyncService.getConnectionHealth();
 
   return {
     // State
-    connectionState,
-    lastSyncTime,
-    syncError,
-    lastEvent,
     isConnected,
-    hasError,
-    connectionHealth,
-    
-    // Actions
-    subscribeToMerchantAccount,
-    unsubscribe,
-    forceSync,
-    testConnection,
-    
-    // Utilities
-    isSubscribed: (subscriptionId: string) => merchantSyncService.isSubscribed(subscriptionId),
-    getActiveSubscriptions: () => merchantSyncService.getActiveSubscriptions(),
-    getSubscriptionCount: () => merchantSyncService.getSubscriptionCount(),
-  };
-};
-
-// Specialized hook for monitoring all merchant accounts (admin use)
-export const useAllMerchantSync = () => {
-  const [connectionState, setConnectionState] = useState<'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED'>('CLOSED');
-  const [lastEvent, setLastEvent] = useState<MerchantSubscriptionEvent | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const subscriptionIdRef = useRef<string | null>(null);
-
-  const handleMerchantEvent = useCallback((event: MerchantSubscriptionEvent) => {
-    setLastEvent(event);
-    setSyncError(null);
-  }, []);
-
-  const subscribe = useCallback(async (callback?: MerchantSubscriptionCallback) => {
-    try {
-      setSyncError(null);
-      
-      // Unsubscribe from existing subscription if any
-      if (subscriptionIdRef.current) {
-        await merchantSyncService.unsubscribe(subscriptionIdRef.current);
-      }
-
-      // Create new subscription
-      const subscriptionId = await merchantSyncService.subscribeToAllMerchantAccounts(
-        callback || handleMerchantEvent
-      );
-      
-      subscriptionIdRef.current = subscriptionId;
-      setConnectionState('SUBSCRIBED');
-      
-      return subscriptionId;
-    } catch (error: any) {
-      console.error('Error subscribing to all merchant accounts:', error);
-      setSyncError(error.message);
-      setConnectionState('TIMED_OUT');
-    }
-  }, [handleMerchantEvent]);
-
-  const unsubscribe = useCallback(async () => {
-    if (subscriptionIdRef.current) {
-      try {
-        await merchantSyncService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-        setConnectionState('CLOSED');
-      } catch (error: any) {
-        console.error('Error unsubscribing:', error);
-        setSyncError(error.message);
-      }
-    }
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      unsubscribe();
-    };
-  }, [unsubscribe]);
-
-  return {
-    // State
     connectionState,
-    lastEvent,
-    syncError,
-    isConnected: connectionState === 'SUBSCRIBED',
-    hasError: syncError !== null,
+    subscriptionCount,
+    lastSyncTime,
     
-    // Actions
-    subscribe,
+    // Actions (all no-ops)
+    subscribeToMerchantAccount,
+    subscribeToAllMerchantAccounts,
     unsubscribe,
+    unsubscribeAll,
+    isSubscribed,
+    getActiveSubscriptions,
+    forceSyncMerchantAccount,
+    testConnection,
+    cleanup,
+    
+    // Connection state management (always shows disconnected)
+    onConnectionStateChange: (callback: (state: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED') => void) => {
+      console.log('[MerchantSync] DISABLED: onConnectionStateChange called but sync is disabled');
+    },
+    offConnectionStateChange: (callback: (state: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED') => void) => {
+      console.log('[MerchantSync] DISABLED: offConnectionStateChange called but sync is disabled');
+    },
+    
+    // Connection health (always shows unhealthy)
+    getConnectionHealth: () => ({
+      activeSubscriptions: 0,
+      subscriptionIds: [],
+      isHealthy: false,
+    }),
   };
 };

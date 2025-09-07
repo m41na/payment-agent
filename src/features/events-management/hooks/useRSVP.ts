@@ -126,7 +126,7 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
         setState(prev => ({ 
           ...prev, 
           rsvpLoading: false,
-          error: result.error || null,
+          error: (result && 'error' in result ? result.error : null) || { code: 'UNKNOWN_ERROR', message: 'RSVP operation failed' },
         }));
       }
 
@@ -142,7 +142,7 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
       setState(prev => ({ 
         ...prev, 
         rsvpLoading: false,
-        error: errorResult.error,
+        error: (errorResult && 'error' in errorResult ? errorResult.error : null) || { code: 'UNKNOWN_ERROR', message: 'Error occurred during RSVP' },
       }));
 
       return errorResult;
@@ -184,7 +184,7 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
         setState(prev => ({ 
           ...prev, 
           rsvpLoading: false,
-          error: result.error || null,
+          error: (result && 'error' in result ? result.error : null) || { code: 'UNKNOWN_ERROR', message: 'RSVP operation failed' },
         }));
       }
 
@@ -200,7 +200,7 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
       setState(prev => ({ 
         ...prev, 
         rsvpLoading: false,
-        error: errorResult.error,
+        error: (errorResult && 'error' in errorResult ? errorResult.error : null) || { code: 'UNKNOWN_ERROR', message: 'Error occurred during RSVP removal' },
       }));
 
       return errorResult;
@@ -340,7 +340,7 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
     }
   }, [autoLoadAttendees, eventId, loadEventAttendees]);
 
-  return {
+  return useMemo(() => ({
     // State
     ...state,
     
@@ -354,67 +354,28 @@ export function useRSVP(options: UseRSVPOptions = {}): UseRSVPReturn {
     
     // Computed
     ...computed,
-  };
-}
-
-// Hook for managing user's RSVPs across all events
-export function useUserRSVPs() {
-  const { user } = useAuth();
-  const [state, setState] = useState<{
-    rsvps: EventAttendee[];
-    loading: boolean;
-    error: EventError | null;
-  }>({
-    rsvps: [],
-    loading: false,
-    error: null,
-  });
-
-  const loadUserRSVPs = useCallback(async (
-    status?: AttendeeStatus,
-    includeUpcoming: boolean = true
-  ) => {
-    if (!user) return;
-
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
-
-      const rsvps = await rsvpService.getUserRSVPs(
-        user.id,
-        status,
-        includeUpcoming
-      );
-
-      setState(prev => ({
-        ...prev,
-        rsvps,
-        loading: false,
-      }));
-    } catch (error: any) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error 
-          ? { code: 'NETWORK_ERROR', message: error.message }
-          : error,
-      }));
-    }
-  }, [user]);
-
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
-  // Auto-load on mount
-  useEffect(() => {
-    if (user) {
-      loadUserRSVPs();
-    }
-  }, [user, loadUserRSVPs]);
-
-  return {
-    ...state,
-    loadUserRSVPs,
+  }), [
+    // State dependencies
+    state.attendees,
+    state.userRSVP,
+    state.loading,
+    state.error,
+    state.rsvpLoading,
+    state.attendeesLoading,
+    
+    // Action dependencies (stable references from useCallback)
+    rsvpToEvent,
+    removeRSVP,
+    loadUserRSVP,
+    loadEventAttendees,
+    refreshAttendees,
     clearError,
-  };
+    
+    // Computed dependencies
+    computed.rsvpStats,
+    computed.attendeesByStatus,
+    computed.hasUserRSVP,
+    computed.userRSVPStatus,
+    computed.canRSVP,
+  ]);
 }

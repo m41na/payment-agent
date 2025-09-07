@@ -11,6 +11,7 @@ import {
   ReferralEventType,
   ReferralUserData,
   ReferralError,
+  ReferralBoostData,
 } from '../types';
 import { ReferralService } from '../services/ReferralService';
 
@@ -49,6 +50,7 @@ interface UseReferralsActions {
   // Utility Actions
   clearErrors: () => void;
   getUserReferralData: () => ReferralUserData | null;
+  getUserReferralBoosts: () => Promise<ReferralBoostData[]>;
 }
 
 interface UseReferralsReturn extends UseReferralsState, UseReferralsActions {}
@@ -261,6 +263,35 @@ export function useReferrals(userId?: string): UseReferralsReturn {
     };
   }, [state.referralCode, state.referralStats]);
 
+  /**
+   * Get user referral boosts for product discovery
+   */
+  const getUserReferralBoosts = useCallback(async (): Promise<ReferralBoostData[]> => {
+    if (!userId || !state.referralStats) {
+      return [];
+    }
+
+    try {
+      // Calculate boost multiplier based on tier and points
+      const boostMultiplier = getListingBoostMultiplier(
+        state.referralStats.current_tier,
+        state.referralStats.total_points_earned
+      );
+
+      const boostData: ReferralBoostData = {
+        user_id: userId,
+        points: state.referralStats.total_points_earned,
+        tier: state.referralStats.current_tier,
+        boost_multiplier: boostMultiplier,
+      };
+
+      return [boostData];
+    } catch (error: any) {
+      console.error('Error getting referral boosts:', error);
+      return [];
+    }
+  }, [userId, state.referralStats]);
+
   // Load initial data when userId changes
   useEffect(() => {
     if (userId) {
@@ -281,5 +312,6 @@ export function useReferrals(userId?: string): UseReferralsReturn {
     refreshReferralStats,
     clearErrors,
     getUserReferralData,
+    getUserReferralBoosts,
   };
 }

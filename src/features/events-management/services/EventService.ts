@@ -53,13 +53,7 @@ export class EventService {
         .from('pg_events')
         .insert(eventRecord)
         .select(`
-          *,
-          organizer:pg_profiles!organizer_id(
-            id,
-            full_name,
-            avatar_url,
-            bio
-          )
+          *
         `)
         .single();
 
@@ -103,13 +97,7 @@ export class EventService {
         .eq('id', eventId)
         .eq('organizer_id', organizerId)
         .select(`
-          *,
-          organizer:pg_profiles!organizer_id(
-            id,
-            full_name,
-            avatar_url,
-            bio
-          )
+          *
         `)
         .single();
 
@@ -142,25 +130,7 @@ export class EventService {
       let query = supabase
         .from('pg_events')
         .select(`
-          *,
-          organizer:pg_profiles!organizer_id(
-            id,
-            full_name,
-            avatar_url,
-            bio
-          ),
-          attendees:pg_event_attendees(
-            id,
-            user_id,
-            status,
-            rsvp_date,
-            notes,
-            user:pg_profiles!user_id(
-              id,
-              full_name,
-              avatar_url
-            )
-          )
+          *
         `)
         .eq('id', eventId)
         .eq('is_active', true);
@@ -202,13 +172,7 @@ export class EventService {
       let query = supabase
         .from('pg_events')
         .select(`
-          *,
-          organizer:pg_profiles!organizer_id(
-            id,
-            full_name,
-            avatar_url,
-            bio
-          )
+          *
         `, { count: 'exact' })
         .eq('is_active', true);
 
@@ -307,13 +271,7 @@ export class EventService {
       let query = supabase
         .from('pg_events')
         .select(`
-          *,
-          organizer:pg_profiles!organizer_id(
-            id,
-            full_name,
-            avatar_url,
-            bio
-          )
+          *
         `, { count: 'exact' })
         .eq('organizer_id', organizerId);
 

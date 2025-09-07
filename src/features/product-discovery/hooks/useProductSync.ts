@@ -40,7 +40,11 @@ interface UseProductSyncActions {
 interface UseProductSyncReturn extends UseProductSyncState, UseProductSyncActions {}
 
 export function useProductSync(): UseProductSyncReturn {
-  const [state, setState] = useState<UseProductSyncState>({
+  // DISABLED: Product sync not needed for mobile-only app
+  // Real-time synchronization is overkill for single-device usage
+  
+  return {
+    // State - always disconnected since we don't sync
     syncState: ProductSyncState.DISCONNECTED,
     isConnected: false,
     isConnecting: false,
@@ -48,141 +52,14 @@ export function useProductSync(): UseProductSyncReturn {
     lastSyncEvent: null,
     lastSyncTimestamp: null,
     error: null,
-  });
-
-  const syncService = useMemo(() => ProductSyncService.getInstance(), []);
-  const callbackRef = useRef<ProductSyncCallback | null>(null);
-  const hookIdRef = useRef<string>(`hook_${Date.now()}_${Math.random()}`);
-
-  // Handle sync events
-  const handleSyncEvent = useCallback((event: ProductSyncEvent) => {
-    setState(prev => ({
-      ...prev,
-      lastSyncEvent: event,
-      lastSyncTimestamp: event.timestamp,
-    }));
-
-    // Handle state change events
-    if (event.type === ProductSyncEventType.SYNC_STATE_CHANGED) {
-      const newState = event.metadata?.new_state as ProductSyncState;
-      if (newState) {
-        setState(prev => ({
-          ...prev,
-          syncState: newState,
-          isConnected: newState === ProductSyncState.CONNECTED,
-          isConnecting: newState === ProductSyncState.CONNECTING,
-          hasError: newState === ProductSyncState.ERROR,
-          error: newState === ProductSyncState.ERROR ? 
-            { code: 'SYNC_ERROR', message: 'Synchronization error occurred' } : null,
-        }));
-      }
-    }
-  }, []);
-
-  // Initialize sync service
-  const initialize = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, error: null }));
-      await syncService.initialize();
-    } catch (error: any) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? 
-          { code: 'INITIALIZATION_ERROR', message: error.message } : 
-          { code: 'INITIALIZATION_ERROR', message: 'Failed to initialize sync service' },
-      }));
-    }
-  }, [syncService]);
-
-  // Cleanup sync service
-  const cleanup = useCallback(async () => {
-    try {
-      await syncService.cleanup();
-      setState(prev => ({
-        ...prev,
-        syncState: ProductSyncState.DISCONNECTED,
-        isConnected: false,
-        isConnecting: false,
-        hasError: false,
-        error: null,
-      }));
-    } catch (error: any) {
-      console.error('Error cleaning up sync service:', error);
-    }
-  }, [syncService]);
-
-  // Force sync refresh
-  const forceSyncRefresh = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, error: null }));
-      await syncService.forceSyncRefresh();
-    } catch (error: any) {
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? 
-          { code: 'SYNC_REFRESH_ERROR', message: error.message } : 
-          { code: 'SYNC_REFRESH_ERROR', message: 'Failed to refresh sync' },
-      }));
-    }
-  }, [syncService]);
-
-  // Register callback
-  const registerCallback = useCallback((key: string, callback: ProductSyncCallback) => {
-    syncService.registerCallback(key, callback);
-  }, [syncService]);
-
-  // Unregister callback
-  const unregisterCallback = useCallback((key: string, callback?: ProductSyncCallback) => {
-    syncService.unregisterCallback(key, callback);
-  }, [syncService]);
-
-  // Clear error
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
-  // Register internal callback for state management
-  useEffect(() => {
-    callbackRef.current = handleSyncEvent;
-    syncService.registerCallback(hookIdRef.current, handleSyncEvent);
-
-    return () => {
-      if (callbackRef.current) {
-        syncService.unregisterCallback(hookIdRef.current, callbackRef.current);
-      }
-    };
-  }, [syncService, handleSyncEvent]);
-
-  // Initialize sync state from service
-  useEffect(() => {
-    const currentState = syncService.getSyncState();
-    setState(prev => ({
-      ...prev,
-      syncState: currentState,
-      isConnected: currentState === ProductSyncState.CONNECTED,
-      isConnecting: currentState === ProductSyncState.CONNECTING,
-      hasError: currentState === ProductSyncState.ERROR,
-    }));
-
-    // Load last sync timestamp
-    syncService.getLastSyncTimestamp().then(timestamp => {
-      if (timestamp) {
-        setState(prev => ({ ...prev, lastSyncTimestamp: timestamp }));
-      }
-    });
-  }, [syncService]);
-
-  return {
-    // State
-    ...state,
     
-    // Actions
-    initialize,
-    cleanup,
-    forceSyncRefresh,
-    registerCallback,
-    unregisterCallback,
-    clearError,
+    // Actions - no-op implementations
+    initialize: async () => {},
+    cleanup: async () => {},
+    forceSyncRefresh: async () => {},
+    registerCallback: () => {},
+    unregisterCallback: () => {},
+    clearError: () => {},
   };
 }
 

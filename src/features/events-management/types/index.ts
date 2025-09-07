@@ -1,48 +1,54 @@
+// Attendee status enum
+export enum AttendeeStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  DECLINED = 'declined',
+  CANCELLED = 'cancelled',
+}
+
+// Connection state enum for real-time sync
+export enum ConnectionState {
+  CONNECTED = 'connected',
+  CONNECTING = 'connecting',
+  DISCONNECTED = 'disconnected',
+  ERROR = 'error',
+}
+
+// Event type enum
+export enum EventType {
+  SOCIAL = 'social',
+  BUSINESS = 'business',
+  EDUCATIONAL = 'educational',
+  ENTERTAINMENT = 'entertainment',
+  SPORTS = 'sports',
+  OTHER = 'other',
+}
+
+// Error interface for events management
+export interface EventError {
+  code: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
 // Core domain types
 export interface Event {
   id: string;
-  organizer_id: string;
   title: string;
-  description?: string;
+  description: string;
+  organizer_id: string;
   event_type: EventType;
   start_date: string;
   end_date: string;
-  location_name?: string;
-  address?: string;
+  location: string;
   latitude: number;
   longitude: number;
-  contact_info: ContactInfo;
-  tags: string[];
-  is_active: boolean;
-  is_featured: boolean;
   max_attendees?: number;
   current_attendees: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
-  organizer?: EventOrganizer;
   distance?: number;
-  products?: EventProduct[];
-  attendees?: EventAttendee[];
-}
-
-export interface EventOrganizer {
-  id: string;
-  full_name: string;
-  avatar_url?: string;
-  bio?: string;
-  rating?: number;
-  total_events: number;
-}
-
-export interface EventProduct {
-  id: string;
-  event_id: string;
-  product_id: string;
-  title: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  is_available: boolean;
 }
 
 export interface EventAttendee {
@@ -50,103 +56,22 @@ export interface EventAttendee {
   event_id: string;
   user_id: string;
   status: AttendeeStatus;
-  rsvp_date: string;
   notes?: string;
-  user?: {
-    id: string;
-    full_name: string;
-    avatar_url?: string;
-  };
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ContactInfo {
-  phone?: string;
-  email?: string;
-  website?: string;
-  social_media?: {
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-  };
-}
-
-// Event types and enums
-export type EventType = 
-  | 'garage_sale' 
-  | 'auction' 
-  | 'farmers_market' 
-  | 'flea_market' 
-  | 'estate_sale' 
-  | 'country_fair' 
-  | 'craft_fair' 
-  | 'food_truck' 
-  | 'pop_up_shop' 
-  | 'community_event'
-  | 'other';
-
-export enum EventStatus {
-  DRAFT = 'draft',
-  PUBLISHED = 'published',
-  ONGOING = 'ongoing',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-}
-
-export enum AttendeeStatus {
-  INTERESTED = 'interested',
-  GOING = 'going',
-  MAYBE = 'maybe',
-  NOT_GOING = 'not_going',
-}
-
-export enum ConnectionState {
-  DISCONNECTED = 'disconnected',
-  CONNECTING = 'connecting',
-  CONNECTED = 'connected',
-}
-
-export enum EventSyncEventType {
-  EVENT_CREATED = 'event_created',
-  EVENT_UPDATED = 'event_updated',
-  EVENT_DELETED = 'event_deleted',
-  ATTENDEE_ADDED = 'attendee_added',
-  ATTENDEE_UPDATED = 'attendee_updated',
-  ATTENDEE_REMOVED = 'attendee_removed',
-}
-
-export interface EventSyncEvent {
-  id: string;
-  type: EventSyncEventType;
-  timestamp: string;
-  data: {
-    event?: Event;
-    attendee?: EventAttendee;
-  };
-}
-
-export enum EventSortBy {
-  DATE_ASC = 'date_asc',
-  DATE_DESC = 'date_desc',
-  DISTANCE = 'distance',
-  POPULARITY = 'popularity',
-  CREATED_AT = 'created_at',
-}
-
-// Operation types
+// Data transfer objects
 export interface CreateEventData {
   title: string;
-  description?: string;
+  description: string;
   event_type: EventType;
   start_date: string;
   end_date: string;
-  location_name?: string;
-  address?: string;
+  location: string;
   latitude: number;
   longitude: number;
-  contact_info: ContactInfo;
-  tags?: string[];
   max_attendees?: number;
-  is_featured?: boolean;
 }
 
 export interface UpdateEventData {
@@ -155,15 +80,10 @@ export interface UpdateEventData {
   event_type?: EventType;
   start_date?: string;
   end_date?: string;
-  location_name?: string;
-  address?: string;
+  location?: string;
   latitude?: number;
   longitude?: number;
-  contact_info?: Partial<ContactInfo>;
-  tags?: string[];
   max_attendees?: number;
-  is_active?: boolean;
-  is_featured?: boolean;
 }
 
 export interface EventRSVPData {
@@ -172,87 +92,23 @@ export interface EventRSVPData {
   notes?: string;
 }
 
-// Search and filtering types
+// Filtering and search types
 export interface EventFilters {
-  event_types?: EventType[];
-  date_from?: string;
-  date_to?: string;
+  event_type?: EventType;
+  date_range?: {
+    start: string;
+    end: string;
+  };
   location?: {
     latitude: number;
     longitude: number;
-    radius_km: number;
+    radius: number;
   };
-  organizer_id?: string;
-  tags?: string[];
-  is_active?: boolean;
-  is_featured?: boolean;
+  max_attendees?: number;
   has_availability?: boolean;
-  price_range?: {
-    min?: number;
-    max?: number;
-  };
 }
 
-export interface EventSearchResult {
-  events: Event[];
-  total_count: number;
-  has_more: boolean;
-  facets?: {
-    event_types: { type: EventType; count: number }[];
-    locations: { city: string; count: number }[];
-    date_ranges: { range: string; count: number }[];
-  };
-}
-
-export interface EventSuggestion {
-  event: Event;
-  reason: 'location' | 'interests' | 'past_attendance' | 'trending';
-  score: number;
-}
-
-// Analytics types
-export interface EventAnalytics {
-  event_id: string;
-  views: number;
-  rsvps: number;
-  attendee_breakdown: {
-    going: number;
-    interested: number;
-    maybe: number;
-  };
-  geographic_distribution: {
-    city: string;
-    count: number;
-  }[];
-  peak_interest_times: {
-    hour: number;
-    views: number;
-  }[];
-  conversion_rate: number; // views to RSVPs
-}
-
-export interface EventInsights {
-  total_events: number;
-  active_events: number;
-  total_attendees: number;
-  average_attendance: number;
-  popular_event_types: {
-    type: EventType;
-    count: number;
-    growth: number;
-  }[];
-  upcoming_events: Event[];
-  trending_events: Event[];
-}
-
-// Error types
-export interface EventError {
-  code: 'EVENT_NOT_FOUND' | 'INVALID_EVENT_DATA' | 'UNAUTHORIZED' | 'EVENT_FULL' | 'PAST_EVENT' | 'NETWORK_ERROR' | 'LOCATION_ERROR';
-  message: string;
-  details?: Record<string, any>;
-}
-
-// Service operation results
+// Operation result interfaces
 export interface EventOperationResult {
   success: boolean;
   event?: Event;
@@ -265,108 +121,61 @@ export interface RSVPOperationResult {
   error?: EventError;
 }
 
-// Real-time event types
-export interface EventUpdateEvent {
-  type: 'event_created' | 'event_updated' | 'event_cancelled' | 'rsvp_added' | 'rsvp_updated';
-  event_id: string;
-  organizer_id: string;
-  changes?: Partial<Event>;
-  timestamp: string;
+// Context Type for Provider
+export interface EventsManagementContextType {
+  // Events state and actions
+  events: Event[];
+  eventsLoading: boolean;
+  eventsError: EventError | null;
+  hasMoreEvents: boolean;
+  refreshingEvents: boolean;
+  eventsByType: Record<EventType, Event[]>;
+  upcomingEvents: Event[];
+  pastEvents: Event[];
+  todayEvents: Event[];
+  thisWeekEvents: Event[];
+  eventCount: number;
+  isEventsEmpty: boolean;
+  
+  // Events actions
+  createEvent: (eventData: CreateEventData) => Promise<EventOperationResult>;
+  updateEvent: (eventId: string, updates: UpdateEventData) => Promise<EventOperationResult>;
+  deleteEvent: (eventId: string) => Promise<EventOperationResult>;
+  loadEvents: (filters?: EventFilters) => Promise<void>;
+  loadMoreEvents: () => Promise<void>;
+  refreshEvents: () => Promise<void>;
+  searchEvents: (query: string, filters?: EventFilters) => Promise<void>;
+  clearEvents: () => void;
+  
+  // RSVP state and actions
+  userRSVPs: EventAttendee[];
+  userRSVPsLoading: boolean;
+  userRSVPsError: EventError | null;
+  
+  // RSVP actions
+  rsvpToEvent: (eventId: string, status: AttendeeStatus, notes?: string) => Promise<RSVPOperationResult>;
+  removeRSVP: (eventId: string) => Promise<RSVPOperationResult>;
+  loadUserRSVPs: (status?: AttendeeStatus, includeUpcoming?: boolean) => Promise<void>;
+  
+  // Real-time sync state and actions
+  connectionState: ConnectionState;
+  isConnected: boolean;
+  isConnecting: boolean;
+  syncEvents: EventSyncEvent[];
+  lastSyncTime: string | null;
+  
+  // Sync actions
+  subscribeToEvent: (eventId: string) => Promise<void>;
+  unsubscribeFromEvent: (eventId: string) => void;
+  reconnectSync: () => Promise<void>;
+  disconnectSync: () => void;
+  clearSyncEvents: () => void;
+  
+  // Utility actions
+  clearAllErrors: () => void;
+  
+  // Computed values
+  totalActiveSubscriptions: number;
+  hasAnyError: boolean;
+  isFullyLoaded: boolean;
 }
-
-export interface EventSubscriptionEvent extends EventUpdateEvent {}
-
-// Event type metadata
-export const EVENT_TYPE_CONFIG: Record<EventType, {
-  label: string;
-  color: string;
-  icon: string;
-  description: string;
-  typical_duration_hours: number;
-}> = {
-  garage_sale: {
-    label: 'Garage Sale',
-    color: '#ff9800',
-    icon: 'home-variant',
-    description: 'Household items and personal belongings',
-    typical_duration_hours: 8,
-  },
-  auction: {
-    label: 'Auction',
-    color: '#e91e63',
-    icon: 'gavel',
-    description: 'Bidding on various items',
-    typical_duration_hours: 4,
-  },
-  farmers_market: {
-    label: 'Farmers Market',
-    color: '#4caf50',
-    icon: 'sprout',
-    description: 'Fresh produce and local goods',
-    typical_duration_hours: 6,
-  },
-  flea_market: {
-    label: 'Flea Market',
-    color: '#9c27b0',
-    icon: 'store',
-    description: 'Antiques, collectibles, and unique finds',
-    typical_duration_hours: 8,
-  },
-  estate_sale: {
-    label: 'Estate Sale',
-    color: '#795548',
-    icon: 'home-city',
-    description: 'Complete household contents sale',
-    typical_duration_hours: 12,
-  },
-  country_fair: {
-    label: 'Country Fair',
-    color: '#ffeb3b',
-    icon: 'ferris-wheel',
-    description: 'Rural community celebration',
-    typical_duration_hours: 10,
-  },
-  craft_fair: {
-    label: 'Craft Fair',
-    color: '#00bcd4',
-    icon: 'palette',
-    description: 'Handmade crafts and artisan goods',
-    typical_duration_hours: 8,
-  },
-  food_truck: {
-    label: 'Food Truck',
-    color: '#ff5722',
-    icon: 'truck',
-    description: 'Mobile food service',
-    typical_duration_hours: 6,
-  },
-  pop_up_shop: {
-    label: 'Pop-up Shop',
-    color: '#3f51b5',
-    icon: 'shopping',
-    description: 'Temporary retail experience',
-    typical_duration_hours: 8,
-  },
-  community_event: {
-    label: 'Community Event',
-    color: '#2196f3',
-    icon: 'account-group',
-    description: 'Local community gathering',
-    typical_duration_hours: 4,
-  },
-  other: {
-    label: 'Other',
-    color: '#607d8b',
-    icon: 'calendar',
-    description: 'Custom event type',
-    typical_duration_hours: 4,
-  },
-};
-
-// Constants
-export const MAX_EVENT_TITLE_LENGTH = 100;
-export const MAX_EVENT_DESCRIPTION_LENGTH = 2000;
-export const MAX_EVENT_TAGS = 10;
-export const DEFAULT_EVENT_RADIUS_KM = 50;
-export const EVENT_STORAGE_KEY = '@events_cache';
-export const RSVP_STORAGE_KEY = '@rsvp_cache';

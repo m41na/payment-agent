@@ -1,122 +1,108 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { SyncService, SubscriptionCallback } from '../services/SyncService';
+import { useState, useEffect, useCallback } from 'react';
 import { Product, ProductSubscriptionEvent } from '../types';
-import { useAuth } from '../../../contexts/AuthContext';
 
-const syncService = new SyncService();
+// DISABLED: InventorySyncService not needed for mobile-only app
+// Real-time inventory sync is overkill for single-device usage
+// Using local-first approach instead
 
-export const useInventorySync = () => {
+export const useInventorySync = (userId?: string) => {
+  const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED'>('CLOSED');
+  const [activeSubscriptions, setActiveSubscriptions] = useState<string[]>([]);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const subscriptionIdRef = useRef<string | null>(null);
-  const { user } = useAuth();
 
-  const handleProductEvent = useCallback((event: ProductSubscriptionEvent) => {
+  // No-op implementations for mobile-only app
+  const subscribeToUserProducts = useCallback(
+    async (callback: (event: ProductSubscriptionEvent) => void): Promise<string> => {
+      console.log('[InventorySync] DISABLED: subscribeToUserProducts called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
+
+  const subscribeToAllProducts = useCallback(
+    async (callback: (event: ProductSubscriptionEvent) => void): Promise<string> => {
+      console.log('[InventorySync] DISABLED: subscribeToAllProducts called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
+
+  const subscribeToProductById = useCallback(
+    async (productId: string, callback: (event: ProductSubscriptionEvent) => void): Promise<string> => {
+      console.log('[InventorySync] DISABLED: subscribeToProductById called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
+
+  const unsubscribe = useCallback(
+    async (subscriptionId: string): Promise<void> => {
+      console.log('[InventorySync] DISABLED: unsubscribe called but sync is disabled');
+    },
+    []
+  );
+
+  const unsubscribeAll = useCallback(
+    async (): Promise<void> => {
+      console.log('[InventorySync] DISABLED: unsubscribeAll called but sync is disabled');
+    },
+    []
+  );
+
+  const isSubscribed = useCallback(
+    (subscriptionId: string): boolean => {
+      console.log('[InventorySync] DISABLED: isSubscribed called but sync is disabled');
+      return false; // Always return false since sync is disabled
+    },
+    []
+  );
+
+  const getActiveSubscriptions = useCallback(
+    (): string[] => {
+      console.log('[InventorySync] DISABLED: getActiveSubscriptions called but sync is disabled');
+      return []; // Always return empty array
+    },
+    []
+  );
+
+  const forceSyncUserProducts = useCallback(
+    async (): Promise<Product[]> => {
+      console.log('[InventorySync] DISABLED: forceSyncUserProducts called but sync is disabled');
+      return []; // Return empty array since sync is disabled
+    },
+    []
+  );
+
+  // Initialize with disconnected state since sync is disabled
+  useEffect(() => {
+    setIsConnected(false);
+    setConnectionState('CLOSED');
+    setActiveSubscriptions([]);
     setLastSyncTime(new Date());
-    setSyncError(null);
-    
-    // This hook doesn't manage product state directly - that's handled by useProducts
-    // Instead, it provides event information that can be consumed by parent components
-    console.log('Product event received:', event);
   }, []);
-
-  const subscribeToUserProducts = useCallback(async (callback?: SubscriptionCallback) => {
-    if (!user) return;
-
-    try {
-      setSyncError(null);
-      
-      // Unsubscribe from existing subscription if any
-      if (subscriptionIdRef.current) {
-        await syncService.unsubscribe(subscriptionIdRef.current);
-      }
-
-      // Create new subscription
-      const subscriptionId = await syncService.subscribeToUserProducts(
-        user.id,
-        callback || handleProductEvent
-      );
-      
-      subscriptionIdRef.current = subscriptionId;
-      setConnectionState('SUBSCRIBED');
-      
-      return subscriptionId;
-    } catch (error: any) {
-      console.error('Error subscribing to user products:', error);
-      setSyncError(error.message);
-      setConnectionState('TIMED_OUT');
-    }
-  }, [user, handleProductEvent]);
-
-  const unsubscribe = useCallback(async () => {
-    if (subscriptionIdRef.current) {
-      try {
-        await syncService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-        setConnectionState('CLOSED');
-      } catch (error: any) {
-        console.error('Error unsubscribing:', error);
-        setSyncError(error.message);
-      }
-    }
-  }, []);
-
-  const forceSync = useCallback(async () => {
-    if (!user) return [];
-
-    try {
-      setSyncError(null);
-      const products = await syncService.forceSyncUserProducts(user.id);
-      setLastSyncTime(new Date());
-      return products;
-    } catch (error: any) {
-      console.error('Error force syncing:', error);
-      setSyncError(error.message);
-      return [];
-    }
-  }, [user]);
-
-  // Set up connection state monitoring
-  useEffect(() => {
-    syncService.onConnectionStateChange(setConnectionState);
-  }, []);
-
-  // Auto-subscribe when user changes
-  useEffect(() => {
-    if (user) {
-      subscribeToUserProducts();
-    } else {
-      unsubscribe();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      unsubscribe();
-    };
-  }, [user, subscribeToUserProducts, unsubscribe]);
-
-  // Computed values
-  const isConnected = connectionState === 'SUBSCRIBED';
-  const hasError = syncError !== null;
-  const activeSubscriptions = syncService.getActiveSubscriptions();
 
   return {
     // State
-    connectionState,
-    lastSyncTime,
-    syncError,
     isConnected,
-    hasError,
+    connectionState,
     activeSubscriptions,
+    lastSyncTime,
     
-    // Actions
+    // Actions (all no-ops)
     subscribeToUserProducts,
+    subscribeToAllProducts,
+    subscribeToProductById,
     unsubscribe,
-    forceSync,
+    unsubscribeAll,
+    isSubscribed,
+    getActiveSubscriptions,
+    forceSyncUserProducts,
     
-    // Utilities
-    isSubscribed: (subscriptionId: string) => syncService.isSubscribed(subscriptionId),
+    // Connection state management (always shows disconnected)
+    onConnectionStateChange: (callback: (state: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED') => void) => {
+      console.log('[InventorySync] DISABLED: onConnectionStateChange called but sync is disabled');
+    },
   };
 };
 
@@ -132,46 +118,20 @@ export const useProductSync = (productId: string) => {
     setSyncError(null);
   }, []);
 
-  const subscribe = useCallback(async (callback?: SubscriptionCallback) => {
-    if (!productId) return;
+  const subscribe = useCallback(
+    async (callback?: (event: ProductSubscriptionEvent) => void): Promise<string> => {
+      console.log('[InventorySync] DISABLED: subscribe called but sync is disabled for mobile-only app');
+      return 'disabled_subscription_id'; // Return fake ID to prevent errors
+    },
+    []
+  );
 
-    try {
-      setSyncError(null);
-      
-      // Unsubscribe from existing subscription if any
-      if (subscriptionIdRef.current) {
-        await syncService.unsubscribe(subscriptionIdRef.current);
-      }
-
-      // Create new subscription
-      const subscriptionId = await syncService.subscribeToProductById(
-        productId,
-        callback || handleProductEvent
-      );
-      
-      subscriptionIdRef.current = subscriptionId;
-      setConnectionState('SUBSCRIBED');
-      
-      return subscriptionId;
-    } catch (error: any) {
-      console.error('Error subscribing to product:', error);
-      setSyncError(error.message);
-      setConnectionState('TIMED_OUT');
-    }
-  }, [productId, handleProductEvent]);
-
-  const unsubscribe = useCallback(async () => {
-    if (subscriptionIdRef.current) {
-      try {
-        await syncService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-        setConnectionState('CLOSED');
-      } catch (error: any) {
-        console.error('Error unsubscribing:', error);
-        setSyncError(error.message);
-      }
-    }
-  }, []);
+  const unsubscribe = useCallback(
+    async (): Promise<void> => {
+      console.log('[InventorySync] DISABLED: unsubscribe called but sync is disabled');
+    },
+    []
+  );
 
   // Auto-subscribe when productId changes
   useEffect(() => {

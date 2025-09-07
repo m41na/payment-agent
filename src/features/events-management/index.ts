@@ -5,13 +5,11 @@
 // Main Hooks
 export { useEventsManagement } from './hooks/useEventsManagement';
 export { useEvents } from './hooks/useEvents';
-export { useRSVP, useUserRSVPs } from './hooks/useRSVP';
-export { useEventSync, useEventSyncSingle } from './hooks/useEventSync';
+export { useRSVP } from './hooks/useRSVP';
 
 // Services
 export { EventService } from './services/EventService';
 export { RSVPService } from './services/RSVPService';
-export { EventSyncService } from './services/EventSyncService';
 
 // Types - Core Domain Types
 export type {
@@ -43,13 +41,6 @@ export type {
   EventLocationFilter,
 } from './types';
 
-// Types - Real-time Sync
-export type {
-  EventSyncEvent,
-  EventSyncEventType,
-  ConnectionState,
-} from './types';
-
 // Types - Error Handling
 export type {
   EventError,
@@ -60,7 +51,6 @@ export {
   EventType,
   AttendeeStatus,
   EventSortBy,
-  ConnectionState,
   EventSyncEventType,
 } from './types';
 
@@ -68,7 +58,6 @@ export {
 export {
   EVENT_CONSTANTS,
   ATTENDEE_CONSTANTS,
-  SYNC_CONSTANTS,
 } from './types';
 
 // =============================================================================
@@ -78,7 +67,7 @@ export {
 export const EVENTS_MANAGEMENT_FEATURE = {
   name: 'Events Management',
   version: '1.0.0',
-  description: 'Complete events management system with RSVP functionality and real-time synchronization',
+  description: 'Complete events management system with RSVP functionality',
   
   // Dependencies
   dependencies: {
@@ -135,14 +124,6 @@ export const EVENTS_MANAGEMENT_FEATURE = {
       'Attendee capacity management',
       'RSVP status updates',
     ],
-    realtime: [
-      'Real-time event updates',
-      'Real-time RSVP changes',
-      'Connection state monitoring',
-      'Offline event caching',
-      'Automatic reconnection with exponential backoff',
-      'Event synchronization across devices',
-    ],
     analytics: [
       'Event view tracking',
       'RSVP statistics',
@@ -185,12 +166,6 @@ export const EVENTS_MANAGEMENT_FEATURE = {
       maxEventDuration: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
       allowPastEventRSVP: false,
     },
-    sync: {
-      maxSyncEvents: 50,
-      reconnectAttempts: 5,
-      reconnectDelay: 1000, // milliseconds
-      maxReconnectDelay: 30000, // milliseconds
-    },
     rsvp: {
       allowMultipleStatuses: false,
       requireNotesForMaybe: false,
@@ -202,13 +177,11 @@ export const EVENTS_MANAGEMENT_FEATURE = {
   performance: {
     caching: {
       events: 'In-memory with AsyncStorage persistence',
-      rsvps: 'In-memory with real-time sync',
-      sync: 'Event queue with size limits',
+      rsvps: 'In-memory',
     },
     optimization: {
       pagination: 'Cursor-based with configurable page sizes',
       search: 'Full-text search with geographic filtering',
-      realtime: 'Selective subscriptions with connection pooling',
     },
   },
   
@@ -223,7 +196,7 @@ export const EVENTS_MANAGEMENT_FEATURE = {
     ],
     dataProtection: [
       'Row Level Security (RLS) on all tables',
-      'User-scoped real-time subscriptions',
+      'User-scoped data access',
       'Input validation and sanitization',
       'Error messages avoid information leakage',
     ],
@@ -239,13 +212,11 @@ export const EVENTS_MANAGEMENT_FEATURE = {
     ],
     integration: [
       'Supabase database operations',
-      'Real-time subscription handling',
       'Cross-hook data synchronization',
     ],
     e2e: [
       'Complete event lifecycle',
       'RSVP workflows',
-      'Real-time sync scenarios',
       'Offline/online transitions',
     ],
   },
