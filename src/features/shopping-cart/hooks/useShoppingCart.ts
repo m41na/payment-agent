@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useCart } from './useCart';
 import { useOrders } from './useOrders';
-import { useCartSync } from './useCartSync';
 import {
   Cart,
   CartItem,
@@ -13,7 +12,6 @@ import {
   CartSummary,
   MerchantCartGroup,
   OrderStatus,
-  CartUpdateEvent,
 } from '../types';
 
 export interface UseShoppingCartReturn {
@@ -33,11 +31,6 @@ export interface UseShoppingCartReturn {
   isCreatingOrder: boolean;
   ordersError: OrderError | null;
   totalSpent: number;
-  
-  // Sync state
-  isConnected: boolean;
-  isReconnecting: boolean;
-  lastCartEvent: CartUpdateEvent | null;
   
   // Cart actions
   addToCart: (itemData: AddToCartData) => Promise<boolean>;
@@ -100,13 +93,6 @@ export const useShoppingCart = (): UseShoppingCartReturn => {
     getOrdersByStatus,
     getTotalSpent,
   } = useOrders();
-
-  const {
-    isConnected,
-    isReconnecting,
-    lastEvent: lastCartEvent,
-    onCartUpdate,
-  } = useCartSync();
 
   /**
    * Checkout with current cart items
@@ -175,13 +161,6 @@ export const useShoppingCart = (): UseShoppingCartReturn => {
     ]);
   }, [refreshCart, refreshOrders]);
 
-  // Setup cart sync callback to refresh cart on updates
-  onCartUpdate((event: CartUpdateEvent) => {
-    // Refresh cart when we receive real-time updates
-    // This ensures the UI stays in sync with server state
-    refreshCart();
-  });
-
   const totalSpent = getTotalSpent();
 
   return {
@@ -201,11 +180,6 @@ export const useShoppingCart = (): UseShoppingCartReturn => {
     isCreatingOrder,
     ordersError,
     totalSpent,
-    
-    // Sync state
-    isConnected,
-    isReconnecting,
-    lastCartEvent,
     
     // Cart actions
     addToCart,

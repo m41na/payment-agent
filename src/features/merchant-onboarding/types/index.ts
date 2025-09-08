@@ -131,3 +131,15 @@ export enum AccountCapability {
 
 // Subscription event types
 export type MerchantSubscriptionEvent = AccountUpdateEvent | OnboardingEvent;
+
+// UI Component Types (for dumb components)
+export interface MerchantOnboardingScreenProps {
+  account: StripeConnectAccount | null;
+  loading: boolean;
+  isOnboardingComplete: boolean;
+  canAcceptPayments: boolean;
+  onCreateAccount: () => Promise<void>;
+  onContinueOnboarding: () => Promise<void>;
+  onRefreshAccountStatus: () => Promise<void>;
+  onComplete: () => void;
+}

@@ -1,9 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useProducts } from './useProducts';
-import { useInventorySync } from './useInventorySync';
 import { InventoryService } from '../services/InventoryService';
 import { Product, CreateProductData, UpdateProductData, ProductFilters } from '../types';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../shared/auth/AuthContext';
 
 const inventoryService = new InventoryService();
 
@@ -14,7 +13,6 @@ export const useInventory = () => {
 
   // Use specialized hooks
   const products = useProducts();
-  const sync = useInventorySync();
 
   // Inventory-specific operations
   const toggleProductAvailability = useCallback(async (productId: string) => {
@@ -169,12 +167,6 @@ export const useInventory = () => {
     getInventoryStats,
     archiveProduct,
     restoreProduct,
-
-    // Real-time sync (from useInventorySync)
-    connectionState: sync.connectionState,
-    isConnected: sync.isConnected,
-    lastSyncTime: sync.lastSyncTime,
-    forceSync: sync.forceSync,
 
     // Enhanced computed values
     availableProducts: products.availableProducts,

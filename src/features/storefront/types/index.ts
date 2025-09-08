@@ -165,10 +165,7 @@ export enum BusinessType {
   RETAIL = 'retail',
   SERVICE = 'service',
   ENTERTAINMENT = 'entertainment',
-  HEALTH_WELLNESS = 'health_wellness',
-  AUTOMOTIVE = 'automotive',
-  HOME_GARDEN = 'home_garden',
-  TECHNOLOGY = 'technology',
+  HEALTH = 'health',
   EDUCATION = 'education',
   OTHER = 'other'
 }
@@ -185,9 +182,8 @@ export enum TransactionStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  CANCELLED = 'cancelled',
   REFUNDED = 'refunded',
-  PARTIALLY_REFUNDED = 'partially_refunded'
+  CANCELLED = 'cancelled'
 }
 
 export enum TransactionExportFormat {
@@ -197,12 +193,14 @@ export enum TransactionExportFormat {
 }
 
 export enum StorefrontErrorCode {
+  PROFILE_NOT_FOUND = 'PROFILE_NOT_FOUND',
+  INVALID_PROFILE_DATA = 'INVALID_PROFILE_DATA',
+  PROFILE_CREATION_FAILED = 'PROFILE_CREATION_FAILED',
+  PROFILE_UPDATE_FAILED = 'PROFILE_UPDATE_FAILED',
+  PROFILE_DELETE_FAILED = 'PROFILE_DELETE_FAILED',
+  UNAUTHORIZED_ACCESS = 'UNAUTHORIZED_ACCESS',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   NETWORK_ERROR = 'NETWORK_ERROR',
-  PROFILE_NOT_FOUND = 'PROFILE_NOT_FOUND',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  TRANSACTION_ERROR = 'TRANSACTION_ERROR',
-  EXPORT_ERROR = 'EXPORT_ERROR',
   CACHE_ERROR = 'CACHE_ERROR'
 }
 

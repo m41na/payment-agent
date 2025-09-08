@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../shared/auth/AuthContext';
 import { PaymentService } from '../services/PaymentService';
 import { CheckoutService } from '../services/CheckoutService';
 import { PaymentMethod, Transaction, CheckoutOptions, CheckoutFlow, PaymentResult } from '../types';
@@ -47,7 +47,7 @@ export const usePayment = () => {
     } finally {
       setLoading(false);
     }
-  }, [paymentService]);
+  }, [paymentService, setLoading, setError, setTransactions]);
 
   // Payment method management
   const addPaymentMethod = useCallback(async (paymentMethodId: string) => {

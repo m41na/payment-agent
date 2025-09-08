@@ -37,3 +37,13 @@ export interface PaymentError extends Error {
   code?: string;
   type?: 'validation' | 'network' | 'stripe' | 'auth';
 }
+
+// UI Component Types (for dumb components)
+export interface PaymentMethodsScreenProps {
+  paymentMethods: PaymentMethod[];
+  loading: boolean;
+  onAddPaymentMethod: () => void;
+  onRemovePaymentMethod: (id: string) => Promise<void>;
+  onSetDefaultPaymentMethod: (id: string) => Promise<void>;
+  onRefreshPaymentMethods: () => void;
+}

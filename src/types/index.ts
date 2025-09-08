@@ -123,6 +123,11 @@ export interface PaymentResult {
   error?: StripeError;
 }
 
+// Common Provider Types
+export interface ProviderProps {
+  children: React.ReactNode;
+}
+
 // Merchant onboarding workflow types
 export interface OnboardingStep {
   id: string;

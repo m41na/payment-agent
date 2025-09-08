@@ -6,13 +6,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { useEventListener, EVENT_TYPES } from '../events';
 
 // Import integrated feature components
-import LocationAwareProductList from '../features/product-discovery/components/LocationAwareProductList';
+import DiscoveryListingContainer from '../features/discovery-listing/containers/DiscoveryListingContainer';
 import IntegratedCheckoutFlow from '../features/payment-processing/components/IntegratedCheckoutFlow';
-import IntegratedMessagingHub from '../features/messaging/components/IntegratedMessagingHub';
+import MessagingContainer from '../features/messaging/containers/MessagingContainer';
 
 // Import existing components (would be created/imported from features)
-import UserProfileScreen from '../features/user-profile/screens/UserProfileScreen';
-import StorefrontDashboard from '../features/storefront/screens/StorefrontDashboard';
+import ProfileManagementContainer from '../features/profile-management/containers/ProfileManagementContainer';
+import StorefrontContainer from '../features/storefront/containers/StorefrontContainer';
 import EventsManagementScreen from '../features/events-management/screens/EventsManagementScreen';
 import ReferralSystemScreen from '../features/referral-system/screens/ReferralSystemScreen';
 
@@ -34,8 +34,8 @@ const DiscoveryStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
-        name="ProductDiscovery" 
-        component={LocationAwareProductList}
+        name="DiscoveryListing" 
+        component={DiscoveryListingContainer}
         options={{ title: 'Discover' }}
       />
       <Stack.Screen 
@@ -66,34 +66,21 @@ const MessagesStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
         name="Messages" 
-        component={IntegratedMessagingHub}
+        component={MessagingContainer}
         options={{ title: 'Messages' }}
       />
     </Stack.Navigator>
   );
 };
 
-// Business Stack - Merchant and storefront management
-const BusinessStack = () => {
+// Storefront Stack - Merchant and storefront management
+const StorefrontStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
         name="Storefront" 
-        component={StorefrontDashboard}
-        options={{ title: 'My Business' }}
-      />
-    </Stack.Navigator>
-  );
-};
-
-// Events Stack - Event management and discovery
-const EventsStack = () => {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen 
-        name="Events" 
-        component={EventsManagementScreen}
-        options={{ title: 'Events' }}
+        component={StorefrontContainer}
+        options={{ title: 'Storefront' }}
       />
     </Stack.Navigator>
   );
@@ -105,7 +92,7 @@ const ProfileStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
         name="Profile" 
-        component={UserProfileScreen}
+        component={ProfileManagementContainer}
         options={{ title: 'Profile' }}
       />
       <Stack.Screen 
@@ -196,21 +183,10 @@ const MainTabNavigator = () => {
       />
       
       <Tab.Screen
-        name="EventsTab"
-        component={EventsStack}
+        name="StorefrontTab"
+        component={StorefrontStack}
         options={{
-          title: 'Events',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>📅</Text>
-          ),
-        }}
-      />
-      
-      <Tab.Screen
-        name="BusinessTab"
-        component={BusinessStack}
-        options={{
-          title: 'Business',
+          title: 'Storefront',
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🏪</Text>
           ),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../shared/auth/AuthContext';
 import { RSVPService } from '../services/RSVPService';
 import {
   EventAttendee,

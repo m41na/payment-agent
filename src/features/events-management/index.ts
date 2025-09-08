@@ -3,7 +3,6 @@
 // =============================================================================
 
 // Main Hooks
-export { useEventsManagement } from './hooks/useEventsManagement';
 export { useEvents } from './hooks/useEvents';
 export { useRSVP } from './hooks/useRSVP';
 

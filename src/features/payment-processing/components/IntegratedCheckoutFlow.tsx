@@ -5,7 +5,7 @@ import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events'
 import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
 import { usePaymentProcessingContext } from '../../../providers/PaymentProcessingProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../shared/auth/AuthContext';
 
 interface CartItem {
   id: string;

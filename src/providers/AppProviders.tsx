@@ -1,9 +1,5 @@
 import React from 'react';
-import { AuthProvider } from '../contexts/AuthContext';
-import { LocationProvider } from '../contexts/LocationContext';
-import { PaymentProvider } from '../contexts/PaymentContext';
-import { SubscriptionProvider } from '../contexts/SubscriptionContext';
-import { InventoryProvider } from '../contexts/InventoryContext';
+import { AuthProvider } from '../shared/auth/AuthContext';
 import { ErrorBoundaryProvider } from './ErrorBoundaryProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { LoadingProvider } from './LoadingProvider';
@@ -11,7 +7,7 @@ import { EventProvider } from '../events/EventProvider';
 
 // Feature providers - now centralized in providers folder
 import { UserProfileProvider } from './UserProfileProvider';
-import { ProductDiscoveryProvider } from './ProductDiscoveryProvider';
+import { DiscoveryListingProvider } from './DiscoveryListingProvider';
 import { PaymentProcessingProvider } from './PaymentProcessingProvider';
 import { ReferralSystemProvider } from './ReferralSystemProvider';
 import { LocationServicesProvider } from './LocationServicesProvider';
@@ -21,6 +17,7 @@ import { EventsManagementProvider } from './EventsManagementProvider';
 import { InventoryManagementProvider } from './InventoryManagementProvider';
 import { ShoppingCartProvider } from './ShoppingCartProvider';
 import { MerchantOnboardingProvider } from './MerchantOnboardingProvider';
+import { SubscriptionProvider } from './SubscriptionProvider';
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -57,55 +54,49 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
               <UserProfileProvider>
                 
                 {/* Location Services - Foundation for proximity features */}
-                <LocationProvider>
-                  <LocationServicesProvider>
-                    
-                    {/* Payment & Subscription Infrastructure */}
-                    <PaymentProvider>
-                      <SubscriptionProvider>
-                        <PaymentProcessingProvider>
-                          
-                          {/* Referral System - Affects product discovery */}
-                          <ReferralSystemProvider>
+                <LocationServicesProvider>
+                  
+                  {/* Payment & Subscription Infrastructure */}
+                  <PaymentProcessingProvider>
+                    <SubscriptionProvider>
+                      
+                      {/* Referral System - Affects product discovery */}
+                      <ReferralSystemProvider>
+                        
+                        {/* Product & Inventory Management */}
+                        <InventoryManagementProvider>
+                          <DiscoveryListingProvider>
                             
-                            {/* Product & Inventory Management */}
-                            <InventoryProvider>
-                              <InventoryManagementProvider>
-                                <ProductDiscoveryProvider>
+                            {/* Shopping & Commerce Features */}
+                            <ShoppingCartProvider>
+                              
+                              {/* Merchant & Storefront Features */}
+                              <MerchantOnboardingProvider>
+                                <StorefrontProvider>
                                   
-                                  {/* Shopping & Commerce Features */}
-                                  <ShoppingCartProvider>
-                                    
-                                    {/* Merchant & Storefront Features */}
-                                    <MerchantOnboardingProvider>
-                                      <StorefrontProvider>
-                                        
-                                        {/* Events & Communication Features */}
-                                        <EventsManagementProvider>
-                                          <MessagingProvider>
-                                            
-                                            {children}
-                                            
-                                          </MessagingProvider>
-                                        </EventsManagementProvider>
-                                        
-                                      </StorefrontProvider>
-                                    </MerchantOnboardingProvider>
-                                    
-                                  </ShoppingCartProvider>
+                                  {/* Events & Communication Features */}
+                                  <EventsManagementProvider>
+                                    <MessagingProvider>
+                                      
+                                      {children}
+                                      
+                                    </MessagingProvider>
+                                  </EventsManagementProvider>
                                   
-                                </ProductDiscoveryProvider>
-                              </InventoryManagementProvider>
-                            </InventoryProvider>
+                                </StorefrontProvider>
+                              </MerchantOnboardingProvider>
+                              
+                            </ShoppingCartProvider>
                             
-                          </ReferralSystemProvider>
-                          
-                        </PaymentProcessingProvider>
-                      </SubscriptionProvider>
-                    </PaymentProvider>
-                    
-                  </LocationServicesProvider>
-                </LocationProvider>
+                          </DiscoveryListingProvider>
+                        </InventoryManagementProvider>
+                        
+                      </ReferralSystemProvider>
+                      
+                    </SubscriptionProvider>
+                  </PaymentProcessingProvider>
+                  
+                </LocationServicesProvider>
                 
               </UserProfileProvider>
             </AuthProvider>

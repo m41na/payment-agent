@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { usePayment } from '../features/payment-processing/hooks/usePayment';
 import { PaymentProcessingContextType } from '../features/payment-processing/types';
+import { ProviderProps } from '../types';
 
 const PaymentProcessingContext = createContext<PaymentProcessingContextType | undefined>(undefined);
-
-interface PaymentProcessingProviderProps {
-  children: ReactNode;
-}
 
 /**
  * Payment Processing Provider
@@ -15,7 +12,7 @@ interface PaymentProcessingProviderProps {
  * Integrates with the Payment Processing feature's hook system to manage
  * payments, refunds, payment methods, and transaction processing.
  */
-export const PaymentProcessingProvider: React.FC<PaymentProcessingProviderProps> = ({ children }) => {
+export const PaymentProcessingProvider: React.FC<ProviderProps> = ({ children }) => {
   const paymentProcessingContext = usePayment();
 
   return (

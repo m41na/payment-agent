@@ -13,7 +13,7 @@ import { StorefrontScreen } from '../screens/StorefrontScreen';
 import { CheckoutScreen } from '../screens/CheckoutScreen';
 
 // Feature-specific stack screens
-import { ProductDetailsScreen } from '../features/product-discovery/screens/ProductDetailsScreen';
+import { ProductDetailsScreen } from '../features/discovery-listing/screens/ProductDetailsScreen';
 import { ConversationScreen } from '../features/messaging/screens/ConversationScreen';
 import { PaymentMethodsScreen } from '../features/payment-processing/screens/PaymentMethodsScreen';
 import { TransactionHistoryScreen } from '../features/storefront/screens/TransactionHistoryScreen';

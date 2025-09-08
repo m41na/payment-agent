@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLocationServices } from '../features/location-services/hooks/useLocationServices';
 import { LocationServicesContextType } from '../features/location-services/types';
+import { ProviderProps } from '../types';
 
 const LocationServicesContext = createContext<LocationServicesContextType | undefined>(undefined);
-
-interface LocationServicesProviderProps {
-  children: ReactNode;
-}
 
 /**
  * Location Services Provider
@@ -15,7 +12,7 @@ interface LocationServicesProviderProps {
  * Integrates with the Location Services feature's hook system to manage
  * location tracking, distance calculations, and map interactions.
  */
-export const LocationServicesProvider: React.FC<LocationServicesProviderProps> = ({ children }) => {
+export const LocationServicesProvider: React.FC<ProviderProps> = ({ children }) => {
   const locationServicesContext = useLocationServices();
 
   return (

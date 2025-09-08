@@ -1,9 +1,9 @@
 import React from 'react';
 import { SafeAreaView, StatusBar, View, ActivityIndicator } from 'react-native';
 import { IntegratedAppNavigator } from './src/navigation/IntegratedAppNavigator';
-import AuthScreen from './src/screens/AuthScreen.container';
+import AuthenticationScreen from './src/shared/components/AuthenticationScreen';
 import AppProviders from './src/providers/AppProviders';
-import { useAuth } from './src/contexts/AuthContext';
+import { useAuth } from './src/shared/auth/AuthContext';
 import { PaperProvider } from 'react-native-paper';
 
 /**
@@ -26,7 +26,7 @@ const AuthenticatedApp = () => {
   }
 
   if (!user) {
-    return <AuthScreen />;
+    return <AuthenticationScreen />;
   }
 
   return <IntegratedAppNavigator />;

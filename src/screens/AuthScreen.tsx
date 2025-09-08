@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, StatusBar } from 'react-native';
 import { Button, TextInput, Text, Card, Divider, Surface } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AuthScreenProps } from './AuthScreen.container';
+import { AuthScreenProps } from './AuthScreenContainer';
 
 const { width, height } = Dimensions.get('window');
 

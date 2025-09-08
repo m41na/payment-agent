@@ -10,12 +10,13 @@ export const MERCHANT_ONBOARDING_FEATURE = {
 export { useMerchantOnboarding } from './hooks/useMerchantOnboarding';
 export { useStripeConnect } from './hooks/useStripeConnect';
 export { useOnboardingFlow } from './hooks/useOnboardingFlow';
-export { useMerchantSync, useAllMerchantSync } from './hooks/useMerchantSync';
 
 // Services - Business logic layer (for advanced usage)
 export { StripeConnectService } from './services/StripeConnectService';
 export { OnboardingFlowService } from './services/OnboardingFlowService';
-export { MerchantSyncService } from './services/MerchantSyncService';
+
+// Components - UI layer
+export { default as MerchantOnboardingContainer } from './containers/MerchantOnboardingContainer';
 
 // Types - Domain models and interfaces
 export type {
@@ -35,6 +36,7 @@ export type {
   AccountOperationResult,
   OnboardingOperationResult,
   MerchantSubscriptionEvent,
+  MerchantOnboardingScreenProps,
 } from './types';
 
 // Re-export service callback types for convenience

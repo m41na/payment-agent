@@ -409,3 +409,12 @@ export const isLocationError = (error: any): error is LocationError => {
     typeof error.timestamp === 'number'
   );
 };
+
+// ============================================================================
+// CONTEXT TYPE FOR PROVIDER
+// ============================================================================
+
+export type LocationServicesContextType = UseLocationServicesReturn;
+
+// Re-export the hook return type for external use
+export type { UseLocationServicesReturn } from '../hooks/useLocationServices';

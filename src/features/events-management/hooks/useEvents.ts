@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useAuth } from '../../../shared/auth/AuthContext';
 import { EventService } from '../services/EventService';
 import {
   Event,
@@ -44,6 +44,9 @@ export function useEvents(options: UseEventsOptions = {}) {
   const { initialFilters, pageSize = 20, autoLoad = false } = options;
   console.log('[useEvents] REBUILT - Extracted options:', { initialFilters, pageSize, autoLoad });
   
+  // Use ref to track events length to avoid dependency loop
+  const eventsLengthRef = useRef(0);
+  
   // Initialize state with explicit, safe defaults
   const [state, setState] = useState<UseEventsState>(() => {
     console.log('[useEvents] REBUILT - Initializing state with safe defaults');
@@ -60,6 +63,11 @@ export function useEvents(options: UseEventsOptions = {}) {
   
   // Create EventService instance (no parameters needed)
   const eventService = new EventService();
+  
+  // Update ref when events change
+  useEffect(() => {
+    eventsLengthRef.current = state.events.length;
+  }, [state.events.length]);
   
   // Simple load function with defensive error handling
   const loadEvents = useCallback(async (filters?: EventFilters, reset = false) => {
@@ -82,7 +90,7 @@ export function useEvents(options: UseEventsOptions = {}) {
       const result = await eventService.searchEvents(
         filters || {},
         pageSize,
-        reset ? 0 : state.events.length
+        reset ? 0 : eventsLengthRef.current
       );
       
       console.log('[useEvents] REBUILT - EventService.searchEvents completed');
@@ -114,7 +122,7 @@ export function useEvents(options: UseEventsOptions = {}) {
         error: { code: 'LOAD_ERROR', message: error instanceof Error ? error.message : 'Unknown error' },
       }));
     }
-  }, [user, pageSize, state.events.length]);
+  }, [user, pageSize]);
   
   // Simple CRUD operations with defensive error handling
   const createEvent = useCallback(async (eventData: EventCreateData): Promise<EventOperationResult> => {

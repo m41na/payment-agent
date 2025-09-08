@@ -202,15 +202,6 @@ export interface OrderOperationResult {
 }
 
 // Real-time event types
-export interface CartUpdateEvent {
-  type: 'item_added' | 'item_updated' | 'item_removed' | 'cart_cleared';
-  user_id: string;
-  cart_id: string;
-  item_id?: string;
-  changes?: Partial<CartItem>;
-  timestamp: string;
-}
-
 export interface OrderUpdateEvent {
   type: 'order_created' | 'order_updated' | 'status_changed' | 'payment_updated';
   order_id: string;
@@ -219,11 +210,130 @@ export interface OrderUpdateEvent {
   timestamp: string;
 }
 
-// Subscription event types
-export type CartSubscriptionEvent = CartUpdateEvent;
-export type OrderSubscriptionEvent = OrderUpdateEvent;
+export interface OrderSubscriptionEvent {
+  type: 'order_created' | 'order_updated' | 'status_changed' | 'payment_updated';
+  order_id: string;
+  user_id: string;
+  changes?: Partial<Order>;
+  timestamp: string;
+}
 
 // Constants
 export const CART_ITEM_LIMIT = 100;
 export const CART_STORAGE_KEY = '@shopping_cart_cache';
 export const ORDER_STORAGE_KEY = '@order_history_cache';
+
+// UI Component Types (for dumb components)
+export interface ShoppingCartScreenProps {
+  // View state
+  activeTab: 'cart' | 'orders';
+  loading: boolean;
+  checkoutLoading: boolean;
+  
+  // Cart data
+  cartItems: CartItem[];
+  cartTotal: number;
+  cartItemCount: number;
+  
+  // Order data
+  orders: Order[];
+  
+  // Actions
+  onTabChange: (tab: 'cart' | 'orders') => void;
+  onUpdateQuantity: (itemId: string, quantity: number) => void;
+  onRemoveItem: (itemId: string) => void;
+  onClearCart: () => void;
+  onCheckout: () => void;
+  onExpressCheckout: () => void;
+  onOneTimePayment: () => void;
+  onSavedPaymentCheckout: (paymentMethodId: string) => void;
+  onRefreshOrders: () => void;
+  onViewOrderDetails: (orderId: string) => void;
+}
+
+export interface UseCartReturn {
+  cart: Cart | null;
+  summary: CartSummary | null;
+  merchantGroups: MerchantCartGroup[];
+  isEmpty: boolean;
+  itemCount: number;
+  isLoading: boolean;
+  error: CartError | null;
+  
+  // Actions
+  addToCart: (itemData: AddToCartData) => Promise<boolean>;
+  updateCartItem: (itemId: string, updates: { quantity?: number }) => Promise<boolean>;
+  removeFromCart: (itemId: string) => Promise<boolean>;
+  clearCart: () => Promise<boolean>;
+  refreshCart: () => Promise<void>;
+  
+  // Utilities
+  getCartItem: (productId: string) => CartItem | null;
+  hasProduct: (productId: string) => boolean;
+  getProductQuantity: (productId: string) => number;
+}
+
+export interface UseOrdersReturn {
+  orders: Order[];
+  currentOrder: Order | null;
+  isLoading: boolean;
+  isCreatingOrder: boolean;
+  error: OrderError | null;
+  
+  // Actions
+  createOrder: (orderData: CreateOrderData) => Promise<Order | null>;
+  getOrder: (orderId: string) => Promise<Order | null>;
+  cancelOrder: (orderId: string, reason?: string) => Promise<boolean>;
+  refreshOrders: () => Promise<void>;
+  
+  // Utilities
+  getRecentOrders: (limit?: number) => Order[];
+  getOrdersByStatus: (status: OrderStatus) => Order[];
+  getTotalSpent: () => number;
+}
+
+export interface UseShoppingCartReturn {
+  // Cart state
+  cart: Cart | null;
+  cartSummary: CartSummary | null;
+  merchantGroups: MerchantCartGroup[];
+  isEmpty: boolean;
+  itemCount: number;
+  isCartLoading: boolean;
+  cartError: CartError | null;
+  
+  // Orders state
+  orders: Order[];
+  currentOrder: Order | null;
+  isOrdersLoading: boolean;
+  isCreatingOrder: boolean;
+  ordersError: OrderError | null;
+  totalSpent: number;
+  
+  // Cart actions
+  addToCart: (itemData: AddToCartData) => Promise<boolean>;
+  updateCartItem: (itemId: string, updates: { quantity?: number }) => Promise<boolean>;
+  removeFromCart: (itemId: string) => Promise<boolean>;
+  clearCart: () => Promise<boolean>;
+  
+  // Order actions
+  createOrder: (orderData: CreateOrderData) => Promise<Order | null>;
+  getOrder: (orderId: string) => Promise<Order | null>;
+  cancelOrder: (orderId: string, reason?: string) => Promise<boolean>;
+  
+  // Combined actions
+  checkout: (orderData: Omit<CreateOrderData, 'items'>) => Promise<Order | null>;
+  addToCartAndCheckout: (itemData: AddToCartData, orderData: Omit<CreateOrderData, 'items'>) => Promise<Order | null>;
+  
+  // Utilities
+  getCartItem: (productId: string) => CartItem | null;
+  hasProduct: (productId: string) => boolean;
+  getProductQuantity: (productId: string) => number;
+  getRecentOrders: (limit?: number) => Order[];
+  getOrdersByStatus: (status: OrderStatus) => Order[];
+  
+  // Refresh actions
+  refreshCart: () => Promise<void>;
+  refreshOrders: () => Promise<void>;
+  refreshAll: () => Promise<void>;
+}

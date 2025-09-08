@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useInventory } from '../features/inventory-management/hooks/useInventory';
 import { InventoryManagementContextType } from '../features/inventory-management/types';
+import { ProviderProps } from '../types';
 
 const InventoryManagementContext = createContext<InventoryManagementContextType | undefined>(undefined);
-
-interface InventoryManagementProviderProps {
-  children: ReactNode;
-}
 
 /**
  * Inventory Management Provider
@@ -15,7 +12,7 @@ interface InventoryManagementProviderProps {
  * Integrates with the Inventory Management feature's hook system to manage
  * product inventory, stock levels, and inventory operations.
  */
-export const InventoryManagementProvider: React.FC<InventoryManagementProviderProps> = ({ children }) => {
+export const InventoryManagementProvider: React.FC<ProviderProps> = ({ children }) => {
   const inventoryManagementContext = useInventory();
 
   return (

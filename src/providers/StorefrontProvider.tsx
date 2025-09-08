@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useStorefront } from '../features/storefront/hooks/useStorefront';
 import { StorefrontContextType } from '../features/storefront/types';
+import { ProviderProps } from '../types';
 
 const StorefrontContext = createContext<StorefrontContextType | undefined>(undefined);
-
-interface StorefrontProviderProps {
-  children: ReactNode;
-}
 
 /**
  * Storefront Provider
@@ -15,7 +12,7 @@ interface StorefrontProviderProps {
  * Integrates with the Storefront feature's hook system to manage
  * business profiles, transaction history, and merchant operations.
  */
-export const StorefrontProvider: React.FC<StorefrontProviderProps> = ({ children }) => {
+export const StorefrontProvider: React.FC<ProviderProps> = ({ children }) => {
   const storefrontContext = useStorefront();
 
   return (

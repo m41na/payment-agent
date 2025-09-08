@@ -27,6 +27,26 @@ export interface PersonalProfile {
   updated_at?: string;
 }
 
+// Context Types
+export interface UserProfileContextType {
+  // State
+  profile: PersonalProfile | null;
+  loading: boolean;
+  error: string | null;
+  
+  // Actions
+  createProfile: (profileData: Partial<PersonalProfile>) => Promise<PersonalProfile>;
+  updateProfile: (updates: Partial<PersonalProfile>) => Promise<PersonalProfile>;
+  updateNotificationPreferences: (preferences: Partial<PersonalProfile['notification_preferences']>) => Promise<PersonalProfile>;
+  updatePrivacySettings: (settings: Partial<PersonalProfile['privacy_settings']>) => Promise<PersonalProfile>;
+  refreshProfile: () => Promise<void>;
+  
+  // Computed values
+  hasProfile: boolean;
+  isNotificationsEnabled: boolean;
+  isProfileVisible: boolean;
+}
+
 // Service Results
 export interface ProfileUpdateResult {
   success: boolean;

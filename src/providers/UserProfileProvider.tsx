@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useUserProfile } from '../features/user-profile/hooks/useUserProfile';
+import { usePersonalProfile } from '../features/user-profile/hooks/usePersonalProfile';
 import { UserProfileContextType } from '../features/user-profile/types';
 
 const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
@@ -16,7 +16,7 @@ interface UserProfileProviderProps {
  * personal user information, preferences, and profile settings.
  */
 export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ children }) => {
-  const userProfileContext = useUserProfile();
+  const userProfileContext = usePersonalProfile();
 
   return (
     <UserProfileContext.Provider value={userProfileContext}>

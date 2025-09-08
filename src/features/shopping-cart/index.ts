@@ -1,13 +1,11 @@
 // Export hooks
 export { useCart } from './hooks/useCart';
 export { useOrders } from './hooks/useOrders';
-export { useCartSync } from './hooks/useCartSync';
 export { useShoppingCart } from './hooks/useShoppingCart';
 
 // Export services
 export { CartService } from './services/CartService';
 export { OrderService } from './services/OrderService';
-export { CartSyncService } from './services/CartSyncService';
 
 // Export types
 export type {
@@ -52,7 +50,6 @@ export type {
   // Hook return types
   UseCartReturn,
   UseOrdersReturn,
-  UseCartSyncReturn,
   UseShoppingCartReturn,
 } from './types';
 

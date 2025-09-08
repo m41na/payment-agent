@@ -2,6 +2,7 @@
 export { usePayment } from './hooks/usePayment';
 export { PaymentService } from './services/PaymentService';
 export { CheckoutService } from './services/CheckoutService';
+export { default as PaymentMethodsContainer } from './containers/PaymentMethodsContainer';
 
 // Types
 export type {
@@ -10,7 +11,8 @@ export type {
   CheckoutOptions,
   CheckoutFlow,
   PaymentResult,
-  PaymentError
+  PaymentError,
+  PaymentMethodsScreenProps,
 } from './types';
 
 // Feature configuration

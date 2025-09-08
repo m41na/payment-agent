@@ -1,7 +1,7 @@
 import React from 'react';
 import { SafeAreaView, StatusBar, View, ActivityIndicator } from 'react-native';
 import { IntegratedAppNavigator } from './src/navigation/IntegratedAppNavigator';
-import AuthScreen from './src/screens/AuthScreen.container';
+import AuthScreen from './src/screens/AuthScreenContainer';
 import { useAuth } from './src/contexts/AuthContext';
 import { PaperProvider } from 'react-native-paper';
 
@@ -12,7 +12,7 @@ import { ErrorBoundaryProvider } from './src/providers/ErrorBoundaryProvider';
 import { ThemeProvider } from './src/providers/ThemeProvider';
 import { LoadingProvider } from './src/providers/LoadingProvider';
 import { EventProvider } from './src/events/EventProvider';
-import { ProductDiscoveryProvider } from './src/providers/ProductDiscoveryProvider';
+import { ProductDiscoveryProvider } from './src/providers/DiscoveryListingProvider';
 import { ReferralSystemProvider } from './src/providers/ReferralSystemProvider';
 
 // Add core context providers that are likely needed

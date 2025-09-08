@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MessageService } from '../services/MessageService';
 import { ConversationService } from '../services/ConversationService';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../shared/auth/AuthContext';
 import {
   Message,
   ConversationSummary,

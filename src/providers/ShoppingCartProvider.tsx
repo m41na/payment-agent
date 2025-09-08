@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useShoppingCart } from '../features/shopping-cart/hooks/useShoppingCart';
 import { ShoppingCartContextType } from '../features/shopping-cart/types';
+import { ProviderProps } from '../types';
 
 const ShoppingCartContext = createContext<ShoppingCartContextType | undefined>(undefined);
-
-interface ShoppingCartProviderProps {
-  children: ReactNode;
-}
 
 /**
  * Shopping Cart Provider
@@ -15,7 +12,7 @@ interface ShoppingCartProviderProps {
  * Integrates with the Shopping Cart feature's hook system to manage
  * cart items, checkout processes, and order operations.
  */
-export const ShoppingCartProvider: React.FC<ShoppingCartProviderProps> = ({ children }) => {
+export const ShoppingCartProvider: React.FC<ProviderProps> = ({ children }) => {
   const shoppingCartContext = useShoppingCart();
 
   return (

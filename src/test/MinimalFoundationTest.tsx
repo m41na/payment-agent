@@ -15,7 +15,7 @@ import { PaymentProcessingProvider } from '../providers/PaymentProcessingProvide
 
 // Add next provider one by one for testing
 import { ReferralSystemProvider } from '../providers/ReferralSystemProvider';
-import { ProductDiscoveryProvider } from '../providers/ProductDiscoveryProvider';
+import { ProductDiscoveryProvider } from '../providers/DiscoveryListingProvider';
 import { InventoryManagementProvider } from '../providers/InventoryManagementProvider';
 import { ShoppingCartProvider } from '../providers/ShoppingCartProvider';
 import { MerchantOnboardingProvider } from '../providers/MerchantOnboardingProvider';

@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useStripeConnect } from './useStripeConnect';
 import { useOnboardingFlow } from './useOnboardingFlow';
-import { useMerchantSync } from './useMerchantSync';
 import {
   CreateAccountRequest,
   StripeConnectAccount,
@@ -17,7 +16,6 @@ export const useMerchantOnboarding = () => {
   // Use specialized hooks
   const stripeConnect = useStripeConnect();
   const onboardingFlow = useOnboardingFlow();
-  const merchantSync = useMerchantSync();
 
   // Combined onboarding workflow
   const startCompleteOnboarding = useCallback(async (request: CreateAccountRequest = {}) => {
@@ -91,18 +89,15 @@ export const useMerchantOnboarding = () => {
     try {
       setOnboardingError(null);
       
-      // Refresh both Stripe Connect and onboarding flow status
-      await Promise.all([
-        stripeConnect.refreshAccountStatus(),
-        onboardingFlow.checkOnboardingStatus?.() || Promise.resolve(),
-      ]);
+      // Refresh Stripe Connect status
+      await stripeConnect.refreshAccountStatus();
 
       return true;
     } catch (err: any) {
       setOnboardingError(err.message || 'Failed to refresh onboarding status');
       throw err;
     }
-  }, [stripeConnect, onboardingFlow]);
+  }, [stripeConnect]);
 
   // Combined state and computed values
   const overallLoading = stripeConnect.loading || onboardingFlow.loading || onboardingLoading;
@@ -147,11 +142,6 @@ export const useMerchantOnboarding = () => {
     progress: onboardingFlow.progress,
     stepInfo: onboardingFlow.stepInfo,
     
-    // Real-time sync (delegated)
-    connectionState: merchantSync.connectionState,
-    isConnected: merchantSync.isConnected,
-    lastSyncTime: merchantSync.lastSyncTime,
-    
     // Combined actions
     startCompleteOnboarding,
     completeFullOnboarding,
@@ -170,9 +160,6 @@ export const useMerchantOnboarding = () => {
     goToPreviousStep: onboardingFlow.goToPreviousStep,
     completeOnboarding: onboardingFlow.completeOnboarding,
     resetOnboarding: onboardingFlow.resetOnboarding,
-    
-    // Real-time sync actions (delegated)
-    forceSync: merchantSync.forceSync,
     
     // Combined computed values
     onboardingStatus,
