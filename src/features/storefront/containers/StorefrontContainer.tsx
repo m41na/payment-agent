@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
-import { useInventory } from '../../inventory-management';
+import { useInventory } from '../../inventory-management/hooks/useInventory';
 import { usePayment } from '../../payment-processing';
 import { useLocation } from '../../location-services';
-import { useAuth } from '../../../shared/auth/AuthContext';
-import { supabase } from '../../../shared/data/supabase';
+import { useAuth } from '../../../features/user-auth/context/AuthContext';
+import { supabase } from '../../../services/supabase';
 import { Event } from '../../events-management/types';
 import StorefrontScreen from '../components/StorefrontScreen';
 

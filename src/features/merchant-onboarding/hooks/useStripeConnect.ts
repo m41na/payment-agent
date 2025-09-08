@@ -8,7 +8,7 @@ import {
   OnboardingRequirements,
   MerchantOnboardingError,
 } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 
 const stripeConnectService = new StripeConnectService();
 

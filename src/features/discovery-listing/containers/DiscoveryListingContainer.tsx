@@ -49,10 +49,11 @@ export interface DiscoveryListingProps {
   
   // Utility functions
   getEventTypeColor: (eventType: string) => string;
+  currentLocation: any;
 }
 
 const DiscoveryListingContainer: React.FC = () => {
-  const { location, requestLocation } = useLocationServicesContext();
+  const { currentLocation, getCurrentLocation } = useLocationServicesContext();
   
   // State management
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'calendar'>('list');
@@ -69,10 +70,10 @@ const DiscoveryListingContainer: React.FC = () => {
 
   // Request location on mount
   useEffect(() => {
-    if (!location) {
-      requestLocation();
+    if (!currentLocation) {
+      getCurrentLocation();
     }
-  }, [location, requestLocation]);
+  }, [currentLocation, getCurrentLocation]);
 
   // Load data when content type changes
   useEffect(() => {
@@ -268,9 +269,31 @@ const DiscoveryListingContainer: React.FC = () => {
     
     // Utility functions
     getEventTypeColor,
+    currentLocation,
   };
 
-  return <DiscoveryListingScreen {...discoveryListingProps} />;
+  return (
+    <DiscoveryListingScreen
+      viewMode={viewMode}
+      contentType={contentType}
+      products={products}
+      events={events}
+      isLoading={isLoading}
+      isRefreshing={isRefreshing}
+      searchQuery={searchQuery}
+      onSearchChange={handleSearchChange}
+      onSearchSubmit={handleSearchSubmit}
+      onViewModeChange={handleViewModeChange}
+      onContentTypeChange={handleContentTypeChange}
+      onRefresh={handleRefresh}
+      onProductSelect={handleProductSelect}
+      onEventSelect={handleEventSelect}
+      onShowEventModal={handleShowEventModal}
+      onHideEventModal={handleHideEventModal}
+      onEventCreate={handleEventCreate}
+      currentLocation={currentLocation}
+    />
+  );
 };
 
 export default DiscoveryListingContainer;

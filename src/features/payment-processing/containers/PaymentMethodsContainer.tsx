@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import { usePayment } from '../hooks/usePayment';
 import PaymentMethodsScreen from '../components/PaymentMethodsScreen';
 

@@ -5,7 +5,7 @@ import { Calendar } from 'react-native-calendars';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
 import { Event } from '../../../types';
 import { supabase } from '../../../services/supabase';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 
 interface EventCreationModalProps {
   visible: boolean;

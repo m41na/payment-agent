@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import { PaymentService } from '../services/PaymentService';
 import { CheckoutService } from '../services/CheckoutService';
 import { PaymentMethod, Transaction, CheckoutOptions, CheckoutFlow, PaymentResult } from '../types';
@@ -14,9 +14,14 @@ export const usePayment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize services
-  const paymentService = user ? new PaymentService(user.id) : null;
-  const checkoutService = paymentService && stripe ? new CheckoutService(paymentService, stripe) : null;
+  // Memoize services to prevent recreation on every render
+  const paymentService = useMemo(() => {
+    return user ? new PaymentService(user.id) : null;
+  }, [user?.id]);
+  
+  const checkoutService = useMemo(() => {
+    return paymentService && stripe ? new CheckoutService(paymentService, stripe) : null;
+  }, [paymentService, stripe]);
 
   // Data fetching
   const fetchPaymentMethods = useCallback(async () => {

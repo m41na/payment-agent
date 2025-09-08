@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 const AuthenticationScreen: React.FC = () => {
   const [email, setEmail] = useState('');

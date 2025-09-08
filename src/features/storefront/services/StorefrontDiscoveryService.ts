@@ -2,7 +2,7 @@
 // STOREFRONT DISCOVERY SERVICE - Location-Based Storefront Search
 // ============================================================================
 
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import { 
   StorefrontDiscovery,
   StorefrontSearchFilter,

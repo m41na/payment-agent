@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import { Product, CreateProductData, UpdateProductData, ProductFilters, ProductSearchResult, InventoryError } from '../types';
 
 export class ProductService {

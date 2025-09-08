@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import { PaymentMethod, Transaction, CheckoutOptions, PaymentResult, PaymentError } from '../types';
 
 export class PaymentService {

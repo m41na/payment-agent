@@ -98,7 +98,7 @@ export const PRODUCT_DISCOVERY_FEATURE = {
       'react-native-paper', // For UI components
     ],
     internal: [
-      '../../../shared/data/supabase',
+      '../../../services/supabase',
     ],
   },
   

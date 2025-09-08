@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMessaging, UseMessagingReturn } from './useMessaging';
 import { useMessageSync, UseMessageSyncReturn } from './useMessageSync';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import {
   Message,
   ConversationSummary,

@@ -1,9 +1,9 @@
 import React from 'react';
 import { SafeAreaView, StatusBar, View, ActivityIndicator } from 'react-native';
 import { IntegratedAppNavigator } from './src/navigation/IntegratedAppNavigator';
-import AuthenticationScreen from './src/shared/components/AuthenticationScreen';
+import AuthenticationScreen from './src/features/user-auth/screens/AuthenticationScreen';
 import AppProviders from './src/providers/AppProviders';
-import { useAuth } from './src/shared/auth/AuthContext';
+import { useAuth } from './src/features/user-auth/context/AuthContext';
 import { PaperProvider } from 'react-native-paper';
 
 /**

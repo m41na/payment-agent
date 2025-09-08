@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import { BusinessProfile, BusinessLocation, ProfileError } from '../types';
 
 export class BusinessProfileService {

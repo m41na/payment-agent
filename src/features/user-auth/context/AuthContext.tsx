@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../data/supabase';
+import { supabase } from '../../../services/supabase';
 
 export interface AuthUser {
   id: string;

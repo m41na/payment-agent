@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Message,

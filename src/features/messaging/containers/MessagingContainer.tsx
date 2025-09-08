@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import { supabase } from '../../../services/supabase';
 import MessagingScreen from '../components/MessagingScreen';
 

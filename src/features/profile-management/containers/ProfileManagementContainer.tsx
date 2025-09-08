@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useUserProfileContext } from '../../../providers/UserProfileProvider';
 import { useStorefrontContext } from '../../../providers/StorefrontProvider';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import ProfileManagementScreen from '../components/ProfileManagementScreen';
 
 // Types for profile data

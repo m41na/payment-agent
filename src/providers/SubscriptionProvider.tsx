@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
-import { useAuth } from '../shared/auth/AuthContext';
+import { useAuth } from '../features/user-auth/context/AuthContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import { usePaymentProcessingContext } from './PaymentProcessingProvider';
 import { ProviderProps } from '../types';

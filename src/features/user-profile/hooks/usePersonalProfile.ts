@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PersonalProfileService } from '../services/PersonalProfileService';
 import { PersonalProfile, ProfileError } from '../types';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 
 const personalProfileService = new PersonalProfileService();
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, memo } from 'react';
-import { useAuth } from '../shared/auth/AuthContext';
+import { useAuth } from '../features/user-auth/context/AuthContext';
 import { EventsManagementContextType, AttendeeStatus, ConnectionState, EventType } from '../features/events-management/types';
 import { useEvents } from '../features/events-management/hooks/useEvents';
 import { useRSVP } from '../features/events-management/hooks/useRSVP';

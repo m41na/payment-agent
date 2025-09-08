@@ -1,5 +1,5 @@
 import React from 'react';
-import { AuthProvider } from '../shared/auth/AuthContext';
+import { AuthProvider } from '../features/user-auth/context/AuthContext';
 import { ErrorBoundaryProvider } from './ErrorBoundaryProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { LoadingProvider } from './LoadingProvider';

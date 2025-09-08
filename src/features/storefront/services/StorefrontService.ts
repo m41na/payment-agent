@@ -2,7 +2,7 @@
 // STOREFRONT SERVICE - Business Profile Management
 // ============================================================================
 
-import { supabase } from '../../../shared/data/supabase';
+import { supabase } from '../../../services/supabase';
 import { 
   BusinessProfile, 
   BusinessLocation, 
