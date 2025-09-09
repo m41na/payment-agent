@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Platform } from 'react-native';
+import SharedMapView from './SharedMapView';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocationServices } from '../hooks/useLocationServices';
 import { LocationData, Coordinates } from '../types';
+import { appTheme } from '../../theme';
 
 interface MapLocationPickerProps {
   location?: LocationData | null;
@@ -31,7 +32,6 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   const [selectedLocation, setSelectedLocation] = useState<LocationData>(
     location || { latitude: 37.78825, longitude: -122.4324 }
   );
-  const [isMapReady, setIsMapReady] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   // Memoize the callback to prevent recreating it
@@ -75,110 +75,34 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     }
   }, [currentLocation, location, initialized, stableOnLocationChange]);
 
-  const handleMapMessage = useCallback((event: any) => {
-    if (!editable) return;
-    
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'mapClick') {
-        const updatedLocation = {
-          latitude: data.lat,
-          longitude: data.lng,
-        };
-        setSelectedLocation(updatedLocation);
-        stableOnLocationChange(updatedLocation);
-      } else if (data.type === 'mapReady') {
-        setIsMapReady(true);
-      }
-    } catch (error) {
-      console.log('Error parsing map message:', error);
-    }
-  }, [editable, stableOnLocationChange]);
 
-  const mapHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-            body { margin: 0; padding: 0; touch-action: manipulation; }
-            #map { height: 100vh; width: 100vw; }
-            ${!editable ? '.leaflet-clickable { pointer-events: none; }' : ''}
-        </style>
-    </head>
-    <body>
-        <div id="map"></div>
-        <script>
-            try {
-                var map = L.map('map', {
-                    tap: true,
-                    tapTolerance: 15,
-                    touchZoom: true,
-                    doubleClickZoom: true,
-                    scrollWheelZoom: true,
-                    boxZoom: true,
-                    keyboard: true
-                }).setView([${selectedLocation.latitude}, ${selectedLocation.longitude}], 13);
-                
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: 'OpenStreetMap contributors'
-                }).addTo(map);
-                
-                var marker = L.marker([${selectedLocation.latitude}, ${selectedLocation.longitude}]).addTo(map);
-                
-                ${editable ? `
-                map.on('click', function(e) {
-                    try {
-                        var lat = e.latlng.lat;
-                        var lng = e.latlng.lng;
-                        
-                        marker.setLatLng([lat, lng]);
-                        
-                        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                            window.ReactNativeWebView.postMessage(JSON.stringify({
-                                type: 'mapClick',
-                                lat: lat,
-                                lng: lng
-                            }));
-                        }
-                    } catch (error) {
-                        console.error('Error in map click handler:', error);
-                    }
-                });
-                ` : ''}
-                
-                map.whenReady(function() {
-                    setTimeout(function() {
-                        map.invalidateSize();
-                        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                            window.ReactNativeWebView.postMessage(JSON.stringify({
-                                type: 'mapReady'
-                            }));
-                        }
-                    }, 100);
-                });
-                
-            } catch (error) {
-                console.error('Error initializing map:', error);
-            }
-        </script>
-    </body>
-    </html>
-  `;
+  // Native MapView implementation using react-native-maps and OpenStreetMap tiles
+
+  const initialRegion = {
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  };
+
+  const handleMapPress = useCallback((e: any) => {
+    if (!editable) return;
+    const { coordinate } = e.nativeEvent;
+    const updatedLocation = { latitude: coordinate.latitude, longitude: coordinate.longitude };
+    setSelectedLocation(updatedLocation);
+    stableOnLocationChange(updatedLocation);
+  }, [editable, stableOnLocationChange]);
 
   if (!permissions?.granted) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { height }] }>
         <View style={styles.blockedContainer}>
-          <Ionicons name="location-outline" size={48} color="#94a3b8" />
+          <Ionicons name="location-outline" size={48} color={appTheme.colors.muted} />
           <Text style={styles.blockedTitle}>Location Access Required</Text>
           <Text style={styles.blockedMessage}>
             This feature requires location access to function properly.
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={requestPermissions}
           >
@@ -191,9 +115,9 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
 
   if (isLoading && !currentLocation) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { height }] }>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
           <Text style={styles.loadingText}>Getting your location...</Text>
         </View>
       </View>
@@ -201,26 +125,20 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   }
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={[styles.container, { height }] }>
       <Text style={[styles.title, !editable && styles.disabledTitle]}>
         {editable ? 'Tap on map to select location' : 'Selected Location'}
       </Text>
-      
+
       <View style={styles.mapWrapper}>
-        <WebView
-          source={{ html: mapHTML }}
-          style={styles.webview}
-          onMessage={handleMapMessage}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
+        <SharedMapView
+          singleMarker={{ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude }}
+          onMapPress={(coord) => handleMapPress({ nativeEvent: { coordinate: coord } })}
+          center={currentLocation ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : null}
+          height={height}
         />
-        {!isMapReady && (
-          <View style={styles.mapLoadingOverlay}>
-            <ActivityIndicator size="large" color="#667eea" />
-          </View>
-        )}
       </View>
-      
+
       {showCoordinates && (
         <View style={styles.coordinatesContainer}>
           <Text style={styles.coordinatesText}>
@@ -241,10 +159,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
-    color: '#374151',
+    color: appTheme.colors.textPrimary,
   },
   disabledTitle: {
-    color: '#64748b',
+    color: appTheme.colors.textSecondary,
   },
   mapWrapper: {
     flex: 1,
@@ -252,7 +170,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderColor: appTheme.colors.border,
     position: 'relative',
   },
   webview: {
@@ -269,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   coordinatesContainer: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: appTheme.colors.surfaceElevated,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -277,7 +195,7 @@ const styles = StyleSheet.create({
   coordinatesText: {
     fontSize: 14,
     fontFamily: 'monospace',
-    color: '#64748b',
+    color: appTheme.colors.textSecondary,
     fontWeight: '500',
   },
   blockedContainer: {
@@ -291,22 +209,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 16,
-    color: '#374151',
+    color: appTheme.colors.textPrimary,
   },
   blockedMessage: {
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
-    color: '#64748b',
+    color: appTheme.colors.textSecondary,
   },
   retryButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: appTheme.colors.primary,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: 'white',
+    color: appTheme.colors.surface,
     fontWeight: '600',
     fontSize: 16,
   },

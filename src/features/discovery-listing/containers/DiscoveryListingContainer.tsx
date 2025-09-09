@@ -20,12 +20,16 @@ export interface DiscoveryListingProps {
   isLoading: boolean;
   isRefreshing: boolean;
   
-  // Search
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  onSearchSubmit: () => void;
-  
-  // View controls
+  // Search (separate for products & events)
+  searchProducts: string;
+  onProductsSearchChange: (query: string) => void;
+  onProductsSearchSubmit: () => void;
+
+  searchEvents: string;
+  onEventsSearchChange: (query: string) => void;
+  onEventsSearchSubmit: () => void;
+
+  // View controls (UI-managed per panel)
   onViewModeChange: (mode: 'map' | 'list' | 'calendar') => void;
   onContentTypeChange: (type: 'products' | 'events') => void;
   
@@ -65,10 +69,22 @@ const DiscoveryListingContainer: React.FC = () => {
   // State management
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'calendar'>('list');
   const [contentType, setContentType] = useState<'products' | 'events'>('products');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchProducts, setSearchProducts] = useState('');
+  const [searchEvents, setSearchEvents] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [isEventModalVisible, setIsEventModalVisible] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  const handleProductsSearchChange = useCallback((q: string) => setSearchProducts(q), []);
+  const handleEventsSearchChange = useCallback((q: string) => setSearchEvents(q), []);
+  const handleProductsSearchSubmit = useCallback(() => {
+    console.log('Products search:', searchProducts);
+    // TODO: integrate product search filtering on server or client
+  }, [searchProducts]);
+  const handleEventsSearchSubmit = useCallback(() => {
+    console.log('Events search:', searchEvents);
+    // TODO: integrate event search filtering on server or client
+  }, [searchEvents]);
   
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -187,15 +203,21 @@ const DiscoveryListingContainer: React.FC = () => {
     }
   }, [loadData]);
 
-  // Event handlers
+  // Event handlers - route search input to the appropriate search state
   const handleSearchChange = useCallback((query: string) => {
-    setSearchQuery(query);
-  }, []);
+    if (contentType === 'products') setSearchProducts(query);
+    else setSearchEvents(query);
+  }, [contentType]);
 
   const handleSearchSubmit = useCallback(() => {
-    // TODO: Implement search functionality
-    console.log('Search submitted:', searchQuery);
-  }, [searchQuery]);
+    if (contentType === 'products') {
+      console.log('Products search submitted:', searchProducts);
+      // TODO: trigger product search/filtering
+    } else {
+      console.log('Events search submitted:', searchEvents);
+      // TODO: trigger event search/filtering
+    }
+  }, [contentType, searchProducts, searchEvents]);
 
   const handleViewModeChange = useCallback((mode: 'map' | 'list' | 'calendar') => {
     setViewMode(mode);
@@ -288,11 +310,15 @@ const DiscoveryListingContainer: React.FC = () => {
     isLoading,
     isRefreshing,
     
-    // Search
-    searchQuery,
-    onSearchChange: handleSearchChange,
-    onSearchSubmit: handleSearchSubmit,
-    
+    // Search (separate)
+    searchProducts,
+    onProductsSearchChange: handleProductsSearchChange,
+    onProductsSearchSubmit: handleProductsSearchSubmit,
+
+    searchEvents,
+    onEventsSearchChange: handleEventsSearchChange,
+    onEventsSearchSubmit: handleEventsSearchSubmit,
+
     // View controls
     onViewModeChange: handleViewModeChange,
     onContentTypeChange: handleContentTypeChange,
@@ -334,9 +360,14 @@ const DiscoveryListingContainer: React.FC = () => {
       events={events}
       isLoading={isLoading}
       isRefreshing={isRefreshing}
-      searchQuery={searchQuery}
-      onSearchChange={handleSearchChange}
-      onSearchSubmit={handleSearchSubmit}
+      // searches
+      searchProducts={searchProducts}
+      onProductsSearchChange={handleProductsSearchChange}
+      onProductsSearchSubmit={handleProductsSearchSubmit}
+      searchEvents={searchEvents}
+      onEventsSearchChange={handleEventsSearchChange}
+      onEventsSearchSubmit={handleEventsSearchSubmit}
+      // view controls
       onViewModeChange={handleViewModeChange}
       onContentTypeChange={handleContentTypeChange}
       onRefresh={handleRefresh}

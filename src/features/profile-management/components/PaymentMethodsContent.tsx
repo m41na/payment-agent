@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePayment } from '../../payment-processing/hooks/usePayment';
+import { appTheme } from '../../theme';
 
 const PaymentMethodsContent: React.FC = () => {
   const { paymentMethods, loading, removePaymentMethod, setDefaultPaymentMethod, fetchPaymentMethods, addPaymentMethodWithSetup } = usePayment();
@@ -67,10 +68,10 @@ const PaymentMethodsContent: React.FC = () => {
     <View key={method.id} style={styles.paymentMethodCard}>
       <View style={styles.paymentMethodInfo}>
         <View style={styles.cardIconContainer}>
-          <Ionicons 
-            name="card" 
-            size={24} 
-            color="#667eea" 
+          <Ionicons
+            name="card"
+            size={24}
+            color={appTheme.colors.primary}
           />
         </View>
         <View style={styles.cardDetails}>
@@ -88,19 +89,11 @@ const PaymentMethodsContent: React.FC = () => {
         </View>
       </View>
       <View style={styles.paymentMethodActions}>
-        {!method.is_default && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleSetDefault(method.id)}
-          >
-            <Text style={styles.actionButtonText}>Set Default</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => confirmDelete(method.id)}
-        >
-          <Ionicons name="trash-outline" size={16} color="#ef4444" />
+        <TouchableOpacity style={styles.iconBtn} onPress={() => handleSetDefault(method.id)}>
+          <Ionicons name={method.is_default ? 'star' : 'star-outline'} size={20} color={method.is_default ? appTheme.colors.success : appTheme.colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDelete(method.id)}>
+          <Ionicons name="trash-outline" size={18} color={appTheme.colors.danger} />
         </TouchableOpacity>
       </View>
     </View>
@@ -116,10 +109,10 @@ const PaymentMethodsContent: React.FC = () => {
           disabled={addingMethod}
         >
           {addingMethod ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={appTheme.colors.surface} size="small" />
           ) : (
             <>
-              <Ionicons name="add" size={20} color="#fff" />
+              <Ionicons name="add" size={20} color={appTheme.colors.surface} />
               <Text style={styles.addButtonText}>Add Card</Text>
             </>
           )}
@@ -128,7 +121,7 @@ const PaymentMethodsContent: React.FC = () => {
       
       {paymentMethods.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="card-outline" size={48} color="#94a3b8" />
+          <Ionicons name="card-outline" size={48} color={appTheme.colors.muted} />
           <Text style={styles.emptyStateTitle}>No Payment Methods</Text>
           <Text style={styles.emptyStateText}>
             Add a payment method to make purchases and manage subscriptions
@@ -171,10 +164,11 @@ const PaymentMethodsContent: React.FC = () => {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
+    padding: 18,
+    marginTop: 0,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -184,35 +178,41 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 16,
+    color: appTheme.colors.textPrimary,
+    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   addButton: {
-    backgroundColor: '#10b981',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: appTheme.colors.success,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 92,
   },
   addButtonText: {
-    fontSize: 14,
-    color: 'white',
+    fontSize: 13,
+    color: appTheme.colors.surface,
     fontWeight: '600',
     marginLeft: 8,
   },
   paymentMethodCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: appTheme.colors.surface,
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginBottom: 12,
-    borderColor: '#e2e8f0',
+    borderColor: appTheme.colors.border,
     borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   paymentMethodInfo: {
     flexDirection: 'row',
@@ -224,24 +224,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: appTheme.colors.surface,
   },
   cardDetails: {
-    flex: 1,
-    marginLeft: 16,
+    flex: 0.8,
   },
   cardBrand: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '700',
+    color: appTheme.colors.textPrimary,
   },
   cardExpiry: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
+    fontSize: 13,
+    color: appTheme.colors.textSecondary,
+    marginTop: 2,
   },
   defaultBadge: {
-    backgroundColor: '#10b981',
+    backgroundColor: appTheme.colors.success,
     borderRadius: 8,
     padding: 4,
     paddingHorizontal: 8,
@@ -250,31 +249,38 @@ const styles = StyleSheet.create({
   },
   defaultBadgeText: {
     fontSize: 12,
-    color: 'white',
+    color: appTheme.colors.surface,
     fontWeight: '600',
   },
   paymentMethodActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
+    flexDirection: 'column',
+  },
+  iconBtn: {
+    padding: 8,
+    borderRadius: 8,
+    marginLeft: 8,
   },
   actionButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: appTheme.colors.surface,
+    borderColor: appTheme.colors.border,
     borderWidth: 1,
+    marginLeft: 8,
   },
   actionButtonText: {
-    fontSize: 14,
-    color: '#1e293b',
-    fontWeight: '600',
+    fontSize: 13,
+    color: appTheme.colors.primary,
+    fontWeight: '700',
   },
   emptyState: {
     justifyContent: 'center',
@@ -284,18 +290,18 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1e293b',
+    color: appTheme.colors.textPrimary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: appTheme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   paymentMethodsList: {
-    marginTop: 8,
+    marginTop: 0,
   },
   dialogOverlay: {
     position: 'absolute',
@@ -308,7 +314,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dialog: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     borderRadius: 16,
     padding: 24,
     width: '80%',
@@ -317,12 +323,12 @@ const styles = StyleSheet.create({
   dialogTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1e293b',
+    color: appTheme.colors.textPrimary,
     marginBottom: 8,
   },
   dialogText: {
     fontSize: 14,
-    color: '#64748b',
+    color: appTheme.colors.textSecondary,
     marginBottom: 24,
     lineHeight: 20,
   },
@@ -338,21 +344,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: appTheme.colors.surfaceElevated,
     marginRight: 8,
   },
   confirmButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: appTheme.colors.danger,
     marginLeft: 8,
   },
   cancelButtonText: {
     fontSize: 14,
-    color: '#1e293b',
+    color: appTheme.colors.textPrimary,
     fontWeight: '600',
   },
   confirmButtonText: {
     fontSize: 14,
-    color: 'white',
+    color: appTheme.colors.surface,
     fontWeight: '600',
   },
 });
