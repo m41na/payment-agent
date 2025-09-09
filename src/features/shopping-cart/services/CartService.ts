@@ -42,18 +42,24 @@ export class CartService {
       const cartItemData = {
         user_id: userId,
         product_id: itemData.product_id,
-        seller_id: itemData.seller_id,
-        title: itemData.title,
-        description: itemData.description,
-        price: itemData.price,
+        product_type: 'product',
         quantity: itemData.quantity,
-        image_url: itemData.image_url,
-        merchant_name: itemData.merchant_name,
-        product_condition: itemData.product_condition,
-        availability_status: 'available' as const,
-        added_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        unit_price: itemData.price,
+        product_snapshot: {
+          title: itemData.title,
+          description: itemData.description,
+          seller_id: itemData.seller_id,
+          merchant_name: itemData.merchant_name,
+          image_url: itemData.image_url,
+          product_condition: itemData.product_condition,
+        },
+        metadata: {
+          added_via: 'discovery_listing',
+        },
       };
+
+      console.log('Adding to cart - Original price:', itemData.price);
+      console.log('Adding to cart - Cart item data:', cartItemData);
 
       const { data: cartItem, error } = await supabase
         .from('pg_cart_items')
@@ -206,12 +212,25 @@ export class CartService {
       }
 
       const items = cartItems || [];
-      const summary = this.calculateCartSummary(items);
+      
+      // Debug: Log raw data from database
+      console.log('Raw cart items from database:', items);
+      
+      // Ensure numeric values are properly converted
+      const processedItems = items.map(item => ({
+        ...item,
+        unit_price: typeof item.unit_price === 'string' ? parseFloat(item.unit_price) : item.unit_price,
+        quantity: typeof item.quantity === 'string' ? parseInt(item.quantity) : item.quantity,
+      }));
+      
+      console.log('Processed cart items:', processedItems);
+      
+      const summary = this.calculateCartSummary(processedItems);
 
       return {
         id: `cart_${userId}`,
         user_id: userId,
-        items,
+        items: processedItems,
         total_items: summary.total_items,
         subtotal: summary.subtotal,
         total_amount: summary.estimated_total,
@@ -288,8 +307,8 @@ export class CartService {
   calculateCartSummary(items: CartItem[]): CartSummary {
     const total_items = items.reduce((sum, item) => sum + item.quantity, 0);
     const unique_products = items.length;
-    const unique_merchants = new Set(items.map(item => item.seller_id)).size;
-    const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const unique_merchants = new Set(items.map(item => item.product_snapshot.seller_id)).size;
+    const subtotal = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
     
     // Basic tax and shipping estimation (can be enhanced)
     const estimated_tax = subtotal * 0.08; // 8% tax rate
@@ -315,19 +334,19 @@ export class CartService {
     const merchantGroups = new Map<string, MerchantCartGroup>();
 
     items.forEach(item => {
-      if (!merchantGroups.has(item.seller_id)) {
-        merchantGroups.set(item.seller_id, {
-          seller_id: item.seller_id,
-          merchant_name: item.merchant_name,
+      if (!merchantGroups.has(item.product_snapshot.seller_id)) {
+        merchantGroups.set(item.product_snapshot.seller_id, {
+          seller_id: item.product_snapshot.seller_id,
+          merchant_name: item.product_snapshot.merchant_name,
           items: [],
           subtotal: 0,
           item_count: 0,
         });
       }
 
-      const group = merchantGroups.get(item.seller_id)!;
+      const group = merchantGroups.get(item.product_snapshot.seller_id)!;
       group.items.push(item);
-      group.subtotal += item.price * item.quantity;
+      group.subtotal += item.unit_price * item.quantity;
       group.item_count += item.quantity;
     });
 

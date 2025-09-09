@@ -3,15 +3,18 @@ export interface CartItem {
   id: string;
   product_id: string;
   user_id: string;
-  seller_id: string;
-  title: string;
-  description?: string;
-  price: number;
+  product_type: string;
   quantity: number;
-  image_url?: string;
-  merchant_name: string;
-  product_condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  availability_status: 'available' | 'limited' | 'out_of_stock';
+  unit_price: number;
+  product_snapshot: {
+    title: string;
+    description?: string;
+    seller_id: string;
+    merchant_name: string;
+    image_url?: string;
+    product_condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+  };
+  metadata: Record<string, any>;
   added_at: string;
   updated_at: string;
 }

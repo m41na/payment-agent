@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
+import { useShoppingCart } from '../../shopping-cart';
 import { supabase } from '../../../services/supabase';
 import { Product, Event } from '../../../types';
 import DiscoveryListingScreen from '../components/DiscoveryListingScreen';
@@ -47,6 +48,10 @@ export interface DiscoveryListingProps {
   onProductSelect: (product: Product) => void;
   onEventSelect: (event: Event) => void;
   
+  // Shopping cart
+  onAddToCart: (product: Product) => void;
+  isAddingToCart: boolean;
+  
   // Utility functions
   getEventTypeColor: (eventType: string) => string;
   currentLocation: any;
@@ -54,6 +59,7 @@ export interface DiscoveryListingProps {
 
 const DiscoveryListingContainer: React.FC = () => {
   const { currentLocation, getCurrentLocation } = useLocationServicesContext();
+  const { addToCart, isLoading: cartLoading } = useShoppingCart();
   
   // State management
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'calendar'>('list');
@@ -61,6 +67,7 @@ const DiscoveryListingContainer: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [isEventModalVisible, setIsEventModalVisible] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -73,12 +80,12 @@ const DiscoveryListingContainer: React.FC = () => {
     if (!currentLocation) {
       getCurrentLocation();
     }
-  }, [currentLocation, getCurrentLocation]);
+  }, [currentLocation]);
 
   // Load data when content type changes
   useEffect(() => {
     loadData();
-  }, [contentType]);
+  }, [loadData]);
 
   // Load data from Supabase
   const loadData = useCallback(async () => {
@@ -219,6 +226,48 @@ const DiscoveryListingContainer: React.FC = () => {
     console.log('Event selected:', event.id);
   }, []);
 
+  /**
+   * Handle adding product to cart
+   */
+  const handleAddToCart = useCallback(async (product: Product) => {
+    try {
+      setIsAddingToCart(true);
+      
+      await addToCart({
+        product_id: product.id,
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        quantity: 1,
+        seller_id: product.seller_id,
+        merchant_name: product.seller?.full_name || 'Unknown Seller',
+        image_url: product.images?.[0] || null,
+        product_condition: product.condition,
+      });
+
+      Alert.alert(
+        '🛒 Added to Cart!',
+        `${product.title} has been added to your cart.`,
+        [
+          { text: 'Continue Shopping', style: 'cancel' },
+          { text: 'View Cart', onPress: () => {
+            // TODO: Navigate to cart tab
+            console.log('Navigate to cart');
+          }}
+        ]
+      );
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      Alert.alert(
+        'Error',
+        'Failed to add item to cart. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsAddingToCart(false);
+    }
+  }, [addToCart]);
+
   const handleLoadMore = useCallback(() => {
     // TODO: Implement pagination
     console.log('Load more requested');
@@ -267,6 +316,10 @@ const DiscoveryListingContainer: React.FC = () => {
     onProductSelect: handleProductSelect,
     onEventSelect: handleEventSelect,
     
+    // Shopping cart
+    onAddToCart: handleAddToCart,
+    isAddingToCart: isAddingToCart || cartLoading,
+    
     // Utility functions
     getEventTypeColor,
     currentLocation,
@@ -291,6 +344,8 @@ const DiscoveryListingContainer: React.FC = () => {
       onShowEventModal={handleShowEventModal}
       onHideEventModal={handleHideEventModal}
       onEventCreate={handleEventCreate}
+      onAddToCart={handleAddToCart}
+      isAddingToCart={isAddingToCart || cartLoading}
       currentLocation={currentLocation}
     />
   );

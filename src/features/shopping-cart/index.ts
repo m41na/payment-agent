@@ -1,70 +1,30 @@
-// Export hooks
+// Shopping Cart Feature Exports
+// Version: 2.1.0 - Added seller transaction management
+
+// Types
+export * from './types';
+
+// Hooks
 export { useCart } from './hooks/useCart';
 export { useOrders } from './hooks/useOrders';
 export { useShoppingCart } from './hooks/useShoppingCart';
+export { useCheckout } from './hooks/useCheckout';
+export { useOrderRealtime } from './hooks/useOrderRealtime';
+export { useSellerTransactions } from './hooks/useSellerTransactions';
 
-// Export services
+// Services
 export { CartService } from './services/CartService';
 export { OrderService } from './services/OrderService';
+export { CartPersistenceService } from './services/CartPersistenceService';
 
-// Export types
-export type {
-  // Core types
-  Cart,
-  CartItem,
-  Order,
-  OrderItem,
-  ShippingAddress,
-  BillingAddress,
-  
-  // Enums
-  OrderStatus,
-  PaymentStatus,
-  FulfillmentStatus,
-  
-  // Operation types
-  AddToCartData,
-  UpdateCartItemData,
-  CreateOrderData,
-  
-  // Analytics types
-  CartSummary,
-  MerchantCartGroup,
-  OrderFilters,
-  OrderSearchResult,
-  
-  // Error types
-  CartError,
-  OrderError,
-  
-  // Result types
-  CartOperationResult,
-  OrderOperationResult,
-  
-  // Event types
-  CartUpdateEvent,
-  OrderUpdateEvent,
-  CartSubscriptionEvent,
-  OrderSubscriptionEvent,
-  
-  // Hook return types
-  UseCartReturn,
-  UseOrdersReturn,
-  UseShoppingCartReturn,
-} from './types';
+// Components
+export { default as ShoppingCartScreen } from './components/ShoppingCartScreen';
 
-// Export constants
-export {
-  CART_ITEM_LIMIT,
-  CART_STORAGE_KEY,
-  ORDER_STORAGE_KEY,
-} from './types';
-
-// Feature metadata
+// Feature Metadata
 export const SHOPPING_CART_FEATURE = {
   name: 'Shopping Cart & Orders',
-  version: '1.0.0',
-  description: 'Complete shopping cart and order management system with real-time synchronization',
+  version: '2.1.0',
+  description: 'Complete shopping cart and order management system with real-time synchronization, payment integration, and ka-ching notifications',
   
   // Feature capabilities
   capabilities: [
@@ -76,13 +36,20 @@ export const SHOPPING_CART_FEATURE = {
     'order_history',
     'cart_persistence',
     'offline_support',
+    'payment_integration',
+    'express_checkout',
+    'realtime_notifications',
+    'ka_ching_alerts',
+    'seller_transaction_management',
   ],
   
   // Dependencies
   dependencies: [
     '@supabase/supabase-js',
     '@react-native-async-storage/async-storage',
+    '@stripe/stripe-react-native',
     'react',
+    'react-native',
   ],
   
   // Database tables
@@ -96,5 +63,14 @@ export const SHOPPING_CART_FEATURE = {
   channels: [
     'cart_updates_{userId}',
     'order_updates_{userId}',
+    'seller_transactions_{userId}',
+  ],
+  
+  // Integration points
+  integrations: [
+    'payment-processing',
+    'user-auth',
+    'inventory-management',
+    'seller-transaction-management',
   ],
 } as const;

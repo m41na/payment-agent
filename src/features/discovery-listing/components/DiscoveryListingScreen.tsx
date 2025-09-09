@@ -64,6 +64,10 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
   onProductSelect,
   onEventSelect,
   
+  // Shopping cart
+  onAddToCart,
+  isAddingToCart,
+  
   // Utility functions
   getEventTypeColor,
 }) => {
@@ -95,8 +99,8 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
 
   // Render product item
   const renderProduct = useCallback(({ item }: { item: Product }) => (
-    <TouchableOpacity onPress={() => onProductSelect(item)}>
-      <Card style={styles.itemCard}>
+    <Card style={styles.itemCard}>
+      <TouchableOpacity onPress={() => onProductSelect(item)}>
         <Card.Content>
           <View style={styles.itemHeader}>
             <Text variant="titleMedium" style={styles.itemTitle}>{item.title}</Text>
@@ -116,9 +120,24 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
             </Chip>
           </View>
         </Card.Content>
-      </Card>
-    </TouchableOpacity>
-  ), [onProductSelect]);
+      </TouchableOpacity>
+      
+      {/* Add to Cart Button */}
+      <Card.Actions style={styles.cardActions}>
+        <Button
+          mode="contained"
+          onPress={() => onAddToCart(item)}
+          loading={isAddingToCart}
+          disabled={isAddingToCart}
+          icon="cart-plus"
+          style={styles.addToCartButton}
+          contentStyle={styles.addToCartButtonContent}
+        >
+          {isAddingToCart ? 'Adding...' : 'Add to Cart'}
+        </Button>
+      </Card.Actions>
+    </Card>
+  ), [onProductSelect, onAddToCart, isAddingToCart]);
 
   // Render event item
   const renderEvent = useCallback(({ item }: { item: Event }) => (
@@ -455,6 +474,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#6200ee',
+  },
+  cardActions: {
+    justifyContent: 'flex-end',
+  },
+  addToCartButton: {
+    width: '100%',
+    justifyContent: 'center',
+  },
+  addToCartButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
 });
 

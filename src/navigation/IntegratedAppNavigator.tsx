@@ -9,6 +9,7 @@ import { useEventListener, EVENT_TYPES } from '../events';
 import DiscoveryListingContainer from '../features/discovery-listing/containers/DiscoveryListingContainer';
 import IntegratedCheckoutFlow from '../features/payment-processing/components/IntegratedCheckoutFlow';
 import MessagingContainer from '../features/messaging/containers/MessagingContainer';
+import { ShoppingCartScreen } from '../features/shopping-cart';
 
 // Import existing components (would be created/imported from features)
 import ProfileManagementContainer from '../features/profile-management/containers/ProfileManagementContainer';
@@ -52,9 +53,14 @@ const CommerceStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
-        name="Cart" 
+        name="ShoppingCart" 
+        component={ShoppingCartScreen}
+        options={{ title: 'Shopping Cart' }}
+      />
+      <Stack.Screen 
+        name="Checkout" 
         component={IntegratedCheckoutFlow}
-        options={{ title: 'Cart' }}
+        options={{ title: 'Checkout' }}
       />
     </Stack.Navigator>
   );
