@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -10,14 +10,35 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { usePayment } from '../../payment-processing/hooks/usePayment';
 import { ProfileManagementProps, ProfileData, BusinessData } from '../containers/ProfileManagementContainer';
-import MapLocationPicker from '../../../components/MapLocationPicker';
+import MapLocationPicker from '../../location-services/components/MapLocationPicker';
+import PaymentMethodsContent from './PaymentMethodsContent';
 
 const { width } = Dimensions.get('window');
 
-const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
+type TabType = 'profile' | 'storefront';
+
+interface ModernProfileManagementProps extends ProfileManagementProps {
+  // Payment methods data and actions
+  paymentMethods?: any[];
+  onAddPaymentMethod?: () => void;
+  onEditPaymentMethod?: (id: string) => void;
+  onDeletePaymentMethod?: (id: string) => void;
+  onSetDefaultPaymentMethod?: (id: string) => void;
+  
+  // Account actions
+  onLogout?: () => void;
+  onDeleteAccount?: () => void;
+  onViewTerms?: () => void;
+  onViewPrivacy?: () => void;
+}
+
+const ProfileManagementScreen: React.FC<ModernProfileManagementProps> = ({
   // View state
   activeTab,
   isEditing,
@@ -28,6 +49,7 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
   profileData,
   businessData,
   userEmail,
+  paymentMethods = [],
   
   // Actions
   onTabChange,
@@ -37,6 +59,14 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
   onProfileDataChange,
   onBusinessDataChange,
   onLocationChange,
+  onAddPaymentMethod,
+  onEditPaymentMethod,
+  onDeletePaymentMethod,
+  onSetDefaultPaymentMethod,
+  onLogout,
+  onDeleteAccount,
+  onViewTerms,
+  onViewPrivacy,
 }) => {
 
   const handleProfileFieldChange = (field: keyof ProfileData, value: any) => {
@@ -65,11 +95,39 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
     onBusinessDataChange({ [field]: value });
   };
 
-  const renderTabButton = (tab: 'profile' | 'business', label: string) => (
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: onLogout },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This action cannot be undone. All your data will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Account', style: 'destructive', onPress: onDeleteAccount },
+      ]
+    );
+  };
+
+  const renderTabButton = (tab: TabType, label: string, icon: keyof typeof Ionicons.glyphMap) => (
     <TouchableOpacity
       style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
       onPress={() => onTabChange(tab)}
     >
+      <Ionicons 
+        name={icon} 
+        size={20} 
+        color={activeTab === tab ? '#fff' : '#64748b'} 
+        style={styles.tabIcon}
+      />
       <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
         {label}
       </Text>
@@ -77,8 +135,8 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
   );
 
   const renderProfileTab = () => (
-    <View>
-      {/* Basic Information */}
+    <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Personal Information Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Personal Information</Text>
         
@@ -87,19 +145,9 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
           <TextInput
             style={[styles.input, !isEditing && styles.disabledInput]}
             value={profileData.full_name}
-            onChangeText={(text) => handleProfileFieldChange('full_name', text)}
+            onChangeText={(text) => onProfileDataChange({ full_name: text })}
             placeholder="Enter your full name"
             editable={isEditing}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={userEmail}
-            editable={false}
-            placeholder="Email from authentication"
           />
         </View>
 
@@ -108,7 +156,7 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
           <TextInput
             style={[styles.input, !isEditing && styles.disabledInput]}
             value={profileData.phone_number}
-            onChangeText={(text) => handleProfileFieldChange('phone_number', text)}
+            onChangeText={(text) => onProfileDataChange({ phone_number: text })}
             placeholder="Enter your phone number"
             keyboardType="phone-pad"
             editable={isEditing}
@@ -120,8 +168,8 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
           <TextInput
             style={[styles.textArea, !isEditing && styles.disabledInput]}
             value={profileData.bio}
-            onChangeText={(text) => handleProfileFieldChange('bio', text)}
-            placeholder="Tell us about yourself..."
+            onChangeText={(text) => onProfileDataChange({ bio: text })}
+            placeholder="Tell us about yourself"
             multiline
             numberOfLines={4}
             editable={isEditing}
@@ -129,83 +177,45 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
         </View>
       </View>
 
-      {/* Social Media */}
+      {/* Social Links Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Social Media</Text>
+        <Text style={styles.sectionTitle}>Social Links</Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Instagram / Twitter</Text>
+          <Text style={styles.label}>Social Link 1</Text>
           <TextInput
             style={[styles.input, !isEditing && styles.disabledInput]}
             value={profileData.social_1}
-            onChangeText={(text) => handleProfileFieldChange('social_1', text)}
-            placeholder="@username or profile URL"
+            onChangeText={(text) => onProfileDataChange({ social_1: text })}
+            placeholder="Instagram, Twitter, etc."
             editable={isEditing}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Other Social Media</Text>
+          <Text style={styles.label}>Social Link 2</Text>
           <TextInput
             style={[styles.input, !isEditing && styles.disabledInput]}
             value={profileData.social_2}
-            onChangeText={(text) => handleProfileFieldChange('social_2', text)}
-            placeholder="@username or profile URL"
+            onChangeText={(text) => onProfileDataChange({ social_2: text })}
+            placeholder="LinkedIn, Facebook, etc."
             editable={isEditing}
           />
         </View>
       </View>
 
-      {/* Notification Preferences */}
+      {/* Privacy Settings Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Notifications</Text>
+        <Text style={styles.sectionTitle}>Privacy Settings</Text>
         
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Email Notifications</Text>
-          <Switch
-            value={profileData.notification_preferences.email}
-            onValueChange={(value) => handleNotificationChange('email', value)}
-            disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.notification_preferences.email ? '#fff' : '#f4f3f4'}
-          />
-        </View>
-
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>SMS Notifications</Text>
-          <Switch
-            value={profileData.notification_preferences.sms}
-            onValueChange={(value) => handleNotificationChange('sms', value)}
-            disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.notification_preferences.sms ? '#fff' : '#f4f3f4'}
-          />
-        </View>
-
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Push Notifications</Text>
-          <Switch
-            value={profileData.notification_preferences.push}
-            onValueChange={(value) => handleNotificationChange('push', value)}
-            disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.notification_preferences.push ? '#fff' : '#f4f3f4'}
-          />
-        </View>
-      </View>
-
-      {/* Privacy Settings */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Privacy</Text>
-        
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Profile Visible to Others</Text>
+          <Text style={styles.switchLabel}>Profile Visible</Text>
           <Switch
             value={profileData.privacy_settings.profile_visible}
-            onValueChange={(value) => handlePrivacyChange('profile_visible', value)}
+            onValueChange={(value) => onProfileDataChange({
+              privacy_settings: { ...profileData.privacy_settings, profile_visible: value }
+            })}
             disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.privacy_settings.profile_visible ? '#fff' : '#f4f3f4'}
           />
         </View>
 
@@ -213,25 +223,95 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
           <Text style={styles.switchLabel}>Show Phone Number</Text>
           <Switch
             value={profileData.privacy_settings.show_phone}
-            onValueChange={(value) => handlePrivacyChange('show_phone', value)}
+            onValueChange={(value) => onProfileDataChange({
+              privacy_settings: { ...profileData.privacy_settings, show_phone: value }
+            })}
             disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.privacy_settings.show_phone ? '#fff' : '#f4f3f4'}
           />
         </View>
 
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Show Email Address</Text>
+          <Text style={styles.switchLabel}>Show Email</Text>
           <Switch
             value={profileData.privacy_settings.show_email}
-            onValueChange={(value) => handlePrivacyChange('show_email', value)}
+            onValueChange={(value) => onProfileDataChange({
+              privacy_settings: { ...profileData.privacy_settings, show_email: value }
+            })}
             disabled={!isEditing}
-            trackColor={{ false: '#e0e0e0', true: '#667eea' }}
-            thumbColor={profileData.privacy_settings.show_email ? '#fff' : '#f4f3f4'}
           />
         </View>
       </View>
-    </View>
+
+      {/* Notification Preferences Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Notification Preferences</Text>
+        
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Email Notifications</Text>
+          <Switch
+            value={profileData.notification_preferences.email}
+            onValueChange={(value) => onProfileDataChange({
+              notification_preferences: { ...profileData.notification_preferences, email: value }
+            })}
+            disabled={!isEditing}
+          />
+        </View>
+
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>SMS Notifications</Text>
+          <Switch
+            value={profileData.notification_preferences.sms}
+            onValueChange={(value) => onProfileDataChange({
+              notification_preferences: { ...profileData.notification_preferences, sms: value }
+            })}
+            disabled={!isEditing}
+          />
+        </View>
+
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Push Notifications</Text>
+          <Switch
+            value={profileData.notification_preferences.push}
+            onValueChange={(value) => onProfileDataChange({
+              notification_preferences: { ...profileData.notification_preferences, push: value }
+            })}
+            disabled={!isEditing}
+          />
+        </View>
+      </View>
+
+      {/* Payment Methods Section */}
+      <PaymentMethodsContent />
+
+      {/* Account Management Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account Management</Text>
+        
+        {/* Sign Out Button */}
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={onLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#667eea" />
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account Section */}
+        <View style={styles.dangerZone}>
+          <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+          <Text style={styles.dangerZoneDescription}>
+            Once you delete your account, there is no going back. Please be certain.
+          </Text>
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={onDeleteAccount}
+          >
+            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 
   const renderBusinessTab = () => (
@@ -491,8 +571,8 @@ const ProfileManagementScreen: React.FC<ProfileManagementProps> = ({
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-        {renderTabButton('profile', 'Profile')}
-        {renderTabButton('business', 'Business')}
+        {renderTabButton('profile', 'Profile', 'person')}
+        {renderTabButton('storefront', 'Storefront', 'briefcase')}
       </View>
 
       {/* Content */}
@@ -590,6 +670,9 @@ const styles = StyleSheet.create({
   },
   activeTabButton: {
     backgroundColor: '#667eea',
+  },
+  tabIcon: {
+    marginRight: 8,
   },
   tabButtonText: {
     fontSize: 16,
@@ -728,6 +811,57 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+  },
+  signOutButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+  },
+  dangerZone: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    marginTop: 20,
+  },
+  dangerZoneTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ef4444',
+  },
+  dangerZoneDescription: {
+    fontSize: 16,
+    color: '#374151',
+    marginBottom: 16,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ef4444',
+    marginLeft: 8,
   },
 });
 

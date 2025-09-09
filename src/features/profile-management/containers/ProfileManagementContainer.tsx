@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { useUserProfileContext } from '../../../providers/UserProfileProvider';
 import { useStorefrontContext } from '../../../providers/StorefrontProvider';
 import { useAuth } from '../../user-auth/context/AuthContext';
@@ -47,7 +47,7 @@ export interface BusinessData {
 
 export interface ProfileManagementProps {
   // View state
-  activeTab: 'profile' | 'business';
+  activeTab: 'profile' | 'storefront';
   isEditing: boolean;
   saving: boolean;
   loading: boolean;
@@ -58,13 +58,17 @@ export interface ProfileManagementProps {
   userEmail: string;
   
   // Actions
-  onTabChange: (tab: 'profile' | 'business') => void;
+  onTabChange: (tab: 'profile' | 'storefront') => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onSave: () => Promise<void>;
   onProfileDataChange: (data: Partial<ProfileData>) => void;
   onBusinessDataChange: (data: Partial<BusinessData>) => void;
   onLocationChange: (location: { latitude: number; longitude: number }) => void;
+  onLogout?: () => void;
+  onDeleteAccount?: () => void;
+  onViewTerms?: () => void;
+  onViewPrivacy?: () => void;
 }
 
 const ProfileManagementContainer: React.FC = () => {
@@ -84,7 +88,7 @@ const ProfileManagementContainer: React.FC = () => {
   const { user } = useAuth();
 
   // View state
-  const [activeTab, setActiveTab] = useState<'profile' | 'business'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'storefront'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -198,7 +202,7 @@ const ProfileManagementContainer: React.FC = () => {
           show_email: false,
         },
       });
-    } else if (activeTab === 'business' && storefrontProfile) {
+    } else if (activeTab === 'storefront' && storefrontProfile) {
       setBusinessData({
         storefront_name: storefrontProfile.storefront_name || '',
         storefront_description: storefrontProfile.storefront_description || '',
@@ -233,7 +237,7 @@ const ProfileManagementContainer: React.FC = () => {
         } else {
           await createProfile(profileData);
         }
-      } else {
+      } else if (activeTab === 'storefront') {
         const businessPayload = {
           ...businessData,
           storefront_location: {
@@ -269,7 +273,7 @@ const ProfileManagementContainer: React.FC = () => {
   }, [resetFormData]);
 
   // Handle tab change
-  const handleTabChange = useCallback((tab: 'profile' | 'business') => {
+  const handleTabChange = useCallback((tab: 'profile' | 'storefront') => {
     setActiveTab(tab);
     setIsEditing(false);
   }, []);
@@ -291,6 +295,54 @@ const ProfileManagementContainer: React.FC = () => {
       storefront_latitude: location.latitude,
       storefront_longitude: location.longitude,
     }));
+  }, []);
+
+  // Handle account actions
+  const handleLogout = useCallback(async () => {
+    try {
+      const { supabase } = await import('../../../services/supabase');
+      await supabase.auth.signOut();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to logout');
+    }
+  }, []);
+
+  const handleDeleteAccount = useCallback(async () => {
+    try {
+      Alert.alert('Error', 'Account deletion not yet implemented');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete account');
+    }
+  }, []);
+
+  // Handle view terms
+  const handleViewTerms = useCallback(async () => {
+    try {
+      const url = 'https://your-app.com/terms';
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Terms of Service');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Terms of Service');
+    }
+  }, []);
+
+  // Handle view privacy
+  const handleViewPrivacy = useCallback(async () => {
+    try {
+      const url = 'https://your-app.com/privacy';
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open Privacy Policy');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open Privacy Policy');
+    }
   }, []);
 
   // Computed values
@@ -318,6 +370,10 @@ const ProfileManagementContainer: React.FC = () => {
     onProfileDataChange: handleProfileDataChange,
     onBusinessDataChange: handleBusinessDataChange,
     onLocationChange: handleLocationChange,
+    onLogout: handleLogout,
+    onDeleteAccount: handleDeleteAccount,
+    onViewTerms: handleViewTerms,
+    onViewPrivacy: handleViewPrivacy,
   }), [
     activeTab,
     isEditing,
@@ -332,6 +388,10 @@ const ProfileManagementContainer: React.FC = () => {
     handleProfileDataChange,
     handleBusinessDataChange,
     handleLocationChange,
+    handleLogout,
+    handleDeleteAccount,
+    handleViewTerms,
+    handleViewPrivacy,
   ]);
 
   return <ProfileManagementScreen {...props} />;

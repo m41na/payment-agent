@@ -54,7 +54,66 @@ export const usePayment = () => {
     }
   }, [paymentService, setLoading, setError, setTransactions]);
 
-  // Payment method management
+  // Payment method management with setup intent flow
+  const addPaymentMethodWithSetup = useCallback(async () => {
+    if (!paymentService || !stripe) throw new Error('Payment service not available');
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Create setup intent via Edge Function
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/pg_create-setup-intent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create setup intent');
+      }
+
+      const { client_secret } = await response.json();
+
+      // Initialize payment sheet with setup intent
+      const { error: initError } = await stripe.initPaymentSheet({
+        setupIntentClientSecret: client_secret,
+        merchantDisplayName: 'Payment Agent',
+        style: 'alwaysDark',
+      });
+
+      if (initError) {
+        throw new Error(initError.message);
+      }
+
+      // Present payment sheet
+      const { error: presentError } = await stripe.presentPaymentSheet();
+      
+      if (presentError) {
+        if (presentError.code !== 'Canceled') {
+          throw new Error(presentError.message);
+        }
+        return; // User canceled
+      }
+
+      // Payment method collection succeeded - refresh the list
+      await fetchPaymentMethods();
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add payment method';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [paymentService, stripe, fetchPaymentMethods]);
+
   const addPaymentMethod = useCallback(async (paymentMethodId: string) => {
     if (!paymentService) throw new Error('Payment service not available');
     
@@ -175,6 +234,7 @@ export const usePayment = () => {
     
     // Actions
     addPaymentMethod,
+    addPaymentMethodWithSetup,
     removePaymentMethod,
     setDefaultPaymentMethod,
     fetchPaymentMethods,
