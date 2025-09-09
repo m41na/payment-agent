@@ -5,6 +5,7 @@ import { useShoppingCart } from '../../shopping-cart/hooks/useShoppingCart';
 import { usePaymentProcessingContext } from '../../../providers/PaymentProcessingProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
 import { useAuth } from '../../user-auth/context/AuthContext';
+import { appTheme } from '../../theme';
 
 interface CartItem {
   id: string;

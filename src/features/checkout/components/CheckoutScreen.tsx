@@ -29,6 +29,9 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onCheckoutComple
 
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // If available, expose a quick express option (one-click using default saved card)
+  const expressOption = paymentOptions?.find((o: any) => o?.id === 'express');
+
   useEffect(() => {
     if (!currentOrder) createOrder();
   }, [currentOrder, createOrder]);
@@ -90,6 +93,31 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onCheckoutComple
         <BrandLogo size={48} />
         <Text style={styles.headerTitle}>Checkout</Text>
       </View>
+
+      {expressOption && checkoutSummary && (
+        <PrimaryButton
+          onPress={async () => {
+            try {
+              setProcessingPayment(true);
+              setSelectedPaymentOption?.(expressOption as PaymentOption);
+              const success = await processPayment();
+              if (success && currentOrder) {
+                Alert.alert('Payment Successful!', `Your order #${currentOrder.id} has been placed successfully.`, [
+                  { text: 'OK', onPress: () => onCheckoutComplete(currentOrder.id) },
+                ]);
+              }
+            } catch (err: any) {
+              Alert.alert('Payment Failed', err?.message || 'Payment processing failed');
+            } finally {
+              setProcessingPayment(false);
+            }
+          }}
+          style={[styles.expressQuickButton, { marginHorizontal: 16, marginBottom: 12 }]}
+          disabled={processingPayment}
+        >
+          {processingPayment ? 'Processing...' : `Express Checkout — Pay $${checkoutSummary.total.toFixed(2)}`}
+        </PrimaryButton>
+      )}
 
       <Card style={styles.summaryCard}>
         <Card.Title title="Order Summary" />
@@ -190,6 +218,7 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, marginBottom: 32 },
   cancelButton: { flex: 1, marginRight: 8 },
   payButton: { flex: 2, marginLeft: 8 },
+  expressQuickButton: { backgroundColor: appTheme.colors.warning, paddingVertical: 12 },
 });
 
 export default CheckoutScreen;

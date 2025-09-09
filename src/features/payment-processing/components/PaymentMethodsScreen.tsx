@@ -22,6 +22,7 @@ const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
   onRemovePaymentMethod,
   onSetDefaultPaymentMethod,
   onRefreshPaymentMethods,
+  onSelectPaymentMethod,
 }) => {
   const [addingMethod, setAddingMethod] = useState(false);
 
@@ -127,16 +128,27 @@ const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
                 Default
               </Chip>
             )}
-            <IconButton
-              icon="delete"
-              size={20}
-              iconColor={appTheme.colors.danger}
-              onPress={() => handleRemovePaymentMethod(item.id)}
-            />
+            {onSelectPaymentMethod ? (
+              <Button
+                mode="contained"
+                compact
+                onPress={() => onSelectPaymentMethod(item.id)}
+                style={{ marginRight: 8 }}
+              >
+                Use
+              </Button>
+            ) : (
+              <IconButton
+                icon="delete"
+                size={20}
+                iconColor={appTheme.colors.danger}
+                onPress={() => handleRemovePaymentMethod(item.id)}
+              />
+            )}
           </View>
         </View>
-        
-        {!item.is_default && (
+
+        {!item.is_default && !onSelectPaymentMethod && (
           <View style={styles.actionButtons}>
             <Button
               mode="outlined"

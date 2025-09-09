@@ -79,4 +79,6 @@ export interface PaymentMethodsScreenProps {
   onRemovePaymentMethod: (id: string) => Promise<void>;
   onSetDefaultPaymentMethod: (id: string) => Promise<void>;
   onRefreshPaymentMethods: () => void;
+  // Optional callback when a payment method is selected for checkout
+  onSelectPaymentMethod?: (id: string) => void;
 }

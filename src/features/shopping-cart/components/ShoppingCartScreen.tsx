@@ -22,12 +22,15 @@ interface ShoppingCartScreenProps {
   onNavigateToOrders?: () => void;
   onNavigateToProduct?: (productId: string) => void;
   onNavigateToCheckout?: () => void;
+  onCheckout?: () => void; // fallback for older containers
+  orderNotification?: boolean;
 }
 
 const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
   onNavigateToOrders,
   onNavigateToProduct,
   onNavigateToCheckout,
+  orderNotification = false,
 }) => {
   const {
     cart,
@@ -66,10 +69,8 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
     onNavigateToCheckout();
   }, [onNavigateToCheckout, isEmpty]);
 
-  const handleExpressCheckout = useCallback(() => {
-    if (!onNavigateToCheckout || isEmpty) return;
-    onNavigateToCheckout();
-  }, [onNavigateToCheckout, isEmpty]);
+  // Express checkout removed from Cart screen — express checkout belongs in the Checkout view
+  const handleExpressCheckout = undefined;
 
   const renderCartItem = (item: CartItem) => {
     const itemTotal = Math.round((item.unit_price * item.quantity) * 100) / 100;
@@ -167,12 +168,8 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
               <Text style={styles.quickSummaryText}>{itemCount} item{itemCount !== 1 ? 's' : ''} • ${cartSummary?.subtotal.toFixed(2)}</Text>
             </View>
 
-            <PrimaryButton onPress={handleOneTimePayment} disabled={isProcessing} fullWidth>
+            <PrimaryButton onPress={() => { if (onNavigateToCheckout) onNavigateToCheckout(); else onCheckout?.(); }} disabled={isProcessing} fullWidth>
               Proceed to Checkout
-            </PrimaryButton>
-
-            <PrimaryButton onPress={handleExpressCheckout} style={{ marginTop: 8 }} fullWidth>
-              Express Checkout
             </PrimaryButton>
           </View>
         </>
@@ -207,11 +204,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
           </View>
 
           <View style={styles.checkoutButtons}>
-            <PrimaryButton onPress={handleExpressCheckout} style={styles.expressButton} fullWidth>
-              Express Checkout
-            </PrimaryButton>
-
-            <PrimaryButton onPress={handleOneTimePayment} style={[styles.primaryButton, { marginTop: 12 }]} fullWidth>
+            <PrimaryButton onPress={() => { if (onNavigateToCheckout) onNavigateToCheckout(); else onCheckout?.(); }} style={[styles.primaryButton, { marginTop: 12 }]} fullWidth>
               Proceed to Checkout
             </PrimaryButton>
           </View>
@@ -252,8 +245,18 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
           <Text style={[styles.tabText, activeTab === 'cart' && styles.activeTabText]}>Cart</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.tab, activeTab === 'summary' && styles.activeTab]} onPress={() => setActiveTab('summary')} disabled={isEmpty}>
-          <Ionicons name="receipt" size={20} color={activeTab === 'summary' ? appTheme.colors.primary : appTheme.colors.muted} />
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'summary' && styles.activeTab]}
+          onPress={() => { if (!isEmpty) setActiveTab('summary'); }}
+          disabled={isEmpty}
+        >
+          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="receipt" size={20} color={activeTab === 'summary' ? appTheme.colors.primary : appTheme.colors.muted} />
+            {orderNotification && (
+              <View style={styles.notificationDot} />
+            )}
+          </View>
+
           <Text style={[styles.tabText, activeTab === 'summary' && styles.activeTabText, isEmpty && styles.disabledTabText]}>Summary</Text>
         </TouchableOpacity>
       </View>
@@ -281,6 +284,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 16, fontWeight: '500', color: appTheme.colors.muted, marginLeft: 8 },
   activeTabText: { color: appTheme.colors.primary },
   disabledTabText: { opacity: 0.5 },
+  notificationDot: { position: 'absolute', top: -6, right: -6, width: 10, height: 10, borderRadius: 6, backgroundColor: appTheme.colors.danger, borderWidth: 1, borderColor: appTheme.colors.surface },
   scrollContent: { flex: 1 },
   emptyCart: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 48 },
   emptyCartTitle: { fontSize: 20, fontWeight: '600', color: appTheme.colors.textPrimary, marginTop: 16, marginBottom: 8 },

@@ -3,11 +3,12 @@ import { Alert } from 'react-native';
 import { usePayment } from '../../../contexts/PaymentContext';
 import { supabase } from '../../../services/supabase';
 import ShoppingCartScreen from '../components/ShoppingCartScreen';
-import { 
-  CartItem, 
-  Order, 
-  ShoppingCartScreenProps 
+import {
+  CartItem,
+  Order,
+  ShoppingCartScreenProps
 } from '../types';
+import { useOrderRealtime } from '../hooks/useOrderRealtime';
 
 const ShoppingCartContainer: React.FC = () => {
   // State management
@@ -16,9 +17,12 @@ const ShoppingCartContainer: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  
+  const [hasNewOrders, setHasNewOrders] = useState(false);
+
   // Payment context
   const { expressCheckout } = usePayment();
+
+  
   
   // Business logic: Load cart items from storage/database
   const loadCartItems = useCallback(async () => {
@@ -50,7 +54,7 @@ const ShoppingCartContainer: React.FC = () => {
       console.error('Error loading cart items:', error);
     }
   }, []);
-  
+
   // Business logic: Load order history
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -97,7 +101,22 @@ const ShoppingCartContainer: React.FC = () => {
       setLoading(false);
     }
   }, []);
-  
+
+  // Real-time order updates (defined after loadOrders)
+  const onOrderCreated = useCallback((order: Order) => {
+    if (activeTab !== 'orders') setHasNewOrders(true);
+    // refresh order list
+    loadOrders().catch(() => {});
+  }, [activeTab, loadOrders]);
+
+  const onOrderUpdated = useCallback((order: Order) => {
+    if (activeTab !== 'orders') setHasNewOrders(true);
+    loadOrders().catch(() => {});
+  }, [activeTab, loadOrders]);
+
+  // Subscribe to realtime updates
+  useOrderRealtime(onOrderCreated, onOrderUpdated);
+
   // Business logic: Calculate cart totals
   const cartTotal = React.useMemo(() => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -226,8 +245,12 @@ const ShoppingCartContainer: React.FC = () => {
   // Event handlers
   const handleTabChange = (tab: 'cart' | 'orders') => {
     setActiveTab(tab);
+    if (tab === 'orders') {
+      // clear notification when user views orders
+      setHasNewOrders(false);
+    }
   };
-  
+
   const handleRefreshOrders = () => {
     loadOrders();
   };
@@ -249,23 +272,31 @@ const ShoppingCartContainer: React.FC = () => {
     activeTab,
     loading,
     checkoutLoading,
-    
+
     // Cart data
     cartItems,
     cartTotal,
     cartItemCount,
-    
+
     // Order data
     orders,
-    
+
     // Actions
     onTabChange: handleTabChange,
     onUpdateQuantity: updateQuantity,
     onRemoveItem: removeItem,
     onClearCart: clearCart,
+    // Preserve existing behavior for containers without navigation
     onCheckout: handleCheckout,
+    // New prop expected by UI components to navigate to the Checkout screen
+    onNavigateToCheckout: () => {
+      console.log('Navigate to Checkout (container fallback)');
+      handleCheckout();
+    },
     onRefreshOrders: handleRefreshOrders,
     onViewOrderDetails: handleViewOrderDetails,
+    // Notification flag for UI
+    orderNotification: hasNewOrders,
   };
   
   return <ShoppingCartScreen {...shoppingCartProps} />;
