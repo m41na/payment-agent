@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,20 +7,22 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
-  ActivityIndicator 
+  ActivityIndicator
 } from 'react-native';
-import { 
-  Card, 
-  Button, 
-  Chip, 
-  FAB, 
-  Searchbar, 
-  SegmentedButtons, 
-  IconButton 
+import {
+  Card,
+  Button,
+  Chip,
+  FAB,
+  Searchbar,
+  SegmentedButtons,
+  IconButton
 } from 'react-native-paper';
 import { Calendar } from 'react-native-calendars';
 import { DiscoveryListingProps } from '../containers/DiscoveryListingContainer';
 import { Product, Event } from '../../../types';
+import BrandLogo from '../../shared/BrandLogo';
+import { appTheme } from '../../theme';
 
 const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
   // View state
@@ -177,9 +179,9 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
         onDayPress={(day) => onDateSelect(day.dateString)}
         markedDates={getMarkedDates()}
         theme={{
-          selectedDayBackgroundColor: '#6200ee',
-          todayTextColor: '#6200ee',
-          arrowColor: '#6200ee',
+          selectedDayBackgroundColor: appTheme.colors.primary,
+          todayTextColor: appTheme.colors.primary,
+          arrowColor: appTheme.colors.primary,
         }}
       />
       
@@ -263,6 +265,10 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <BrandLogo size={48} />
+          <Text style={styles.headerTitle}>Discover</Text>
+        </View>
         <Searchbar
           placeholder={`Search ${contentType}...`}
           onChangeText={onSearchChange}
@@ -270,7 +276,7 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
           onSubmitEditing={onSearchSubmit}
           style={styles.searchBar}
         />
-        
+
         <SegmentedButtons
           value={contentType}
           onValueChange={(value) => onContentTypeChange(value as 'products' | 'events')}
@@ -337,13 +343,24 @@ const DiscoveryListingScreen: React.FC<DiscoveryListingProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.background,
   },
   header: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     padding: 16,
     paddingTop: 8,
     elevation: 2,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: appTheme.colors.textPrimary,
   },
   searchBar: {
     marginBottom: 12,
@@ -393,7 +410,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   price: {
-    color: '#6200ee',
+    color: appTheme.colors.primary,
     fontWeight: 'bold',
   },
   description: {

@@ -5,6 +5,7 @@ import AuthenticationScreen from './src/features/user-auth/screens/Authenticatio
 import AppProviders from './src/providers/AppProviders';
 import { useAuth } from './src/features/user-auth/context/AuthContext';
 import { PaperProvider } from 'react-native-paper';
+import { paperTheme } from './src/features/theme';
 
 /**
  * Authentication Gate Component
@@ -19,7 +20,7 @@ const AuthenticatedApp = () => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#6366f1' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: paperTheme.colors.primary }}>
         <ActivityIndicator size="large" color="white" />
       </View>
     );
@@ -43,7 +44,7 @@ const AuthenticatedApp = () => {
  */
 export default function App() {
   return (
-    <PaperProvider>
+    <PaperProvider theme={paperTheme}>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={{ flex: 1 }}>
         <AppProviders>

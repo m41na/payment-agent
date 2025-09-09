@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FlatList, View, Text, RefreshControl } from 'react-native';
-import { Card, Button, LoadingSpinner } from '../../../components/shared';
+import { FlatList, View, Text, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
 import { useDiscoveryListingContext } from '../../../providers/DiscoveryListingProvider';
@@ -174,8 +173,7 @@ export const LocationAwareProductList: React.FC = () => {
   }, []);
 
   const renderProduct = ({ item: product }: { item: Product }) => (
-    <Card
-      variant="elevated"
+    <TouchableOpacity
       style={{ marginBottom: 12 }}
       onPress={() => handleProductPress(product)}
     >
@@ -216,13 +214,14 @@ export const LocationAwareProductList: React.FC = () => {
       <Text style={{ fontSize: 14, color: '#666', marginTop: 8 }}>
         {product.description}
       </Text>
-    </Card>
+    </TouchableOpacity>
   );
 
   if (isLoading && !refreshing) {
     return (
-      <LoadingSpinner 
-        message="Discovering products near you..." 
+      <ActivityIndicator 
+        size="large" 
+        color="#2196F3" 
         style={{ flex: 1 }}
       />
     );
@@ -231,11 +230,11 @@ export const LocationAwareProductList: React.FC = () => {
   return (
     <View style={{ flex: 1, padding: 16 }}>
       {locationLoading && (
-        <Card variant="outlined" style={{ marginBottom: 16, backgroundColor: '#FFF3CD' }}>
+        <View style={{ marginBottom: 16, backgroundColor: '#FFF3CD', padding: 16 }}>
           <Text style={{ color: '#856404', textAlign: 'center' }}>
             Loading location...
           </Text>
-        </Card>
+        </View>
       )}
 
       <FlatList

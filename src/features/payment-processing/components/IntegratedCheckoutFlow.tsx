@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
-import { Button, Card, LoadingSpinner, Modal } from '../../../components/shared';
+import { View, Text, ScrollView, Alert, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events';
 import { useShoppingCart } from '../../shopping-cart/hooks/useShoppingCart';
 import { usePaymentProcessingContext } from '../../../providers/PaymentProcessingProvider';
@@ -227,7 +226,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
 
       {/* Order Items by Merchant */}
       {Object.values(merchantGroups).map((group: any) => (
-        <Card key={group.merchantId} variant="outlined" style={{ marginBottom: 16 }}>
+        <View key={group.merchantId} style={{ marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
             {group.merchantName}
           </Text>
@@ -263,11 +262,11 @@ export const IntegratedCheckoutFlow: React.FC = () => {
               </Text>
             </View>
           </View>
-        </Card>
+        </View>
       ))}
 
       {/* Referral Code Section */}
-      <Card variant="filled" style={{ marginBottom: 16 }}>
+      <View style={{ marginBottom: 16 }}>
         <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
           Referral Code
         </Text>
@@ -277,12 +276,12 @@ export const IntegratedCheckoutFlow: React.FC = () => {
             <View style={{ flex: 1 }}>
               <Text>Enter referral code for discount</Text>
             </View>
-            <Button
-              title="Apply"
+            <TouchableOpacity
               onPress={handleApplyReferralCode}
-              variant="outline"
-              size="small"
-            />
+              style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+            >
+              <Text style={{ color: '#fff' }}>Apply</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={{ 
@@ -300,7 +299,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
             </Text>
           </View>
         )}
-      </Card>
+      </View>
 
       {/* Order Total */}
       <View style={{ marginBottom: 20, backgroundColor: '#fff', padding: 16, borderRadius: 8 }}>
@@ -336,19 +335,18 @@ export const IntegratedCheckoutFlow: React.FC = () => {
         </View>
       </View>
 
-      <Button
-        title="Proceed to Payment"
+      <TouchableOpacity
         onPress={handleProceedToPayment}
-        variant="primary"
-        size="large"
-        fullWidth
-      />
+        style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+      >
+        <Text style={{ color: '#fff' }}>Proceed to Payment</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 
   const renderPaymentStep = () => (
     <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
-      <Card variant="elevated" style={{ alignItems: 'center' }}>
+      <View style={{ alignItems: 'center' }}>
         <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>
           Complete Payment
         </Text>
@@ -361,38 +359,32 @@ export const IntegratedCheckoutFlow: React.FC = () => {
           Your payment will be processed securely through Stripe
         </Text>
 
-        <Button
-          title="Pay Now"
+        <TouchableOpacity
           onPress={handleProcessPayment}
-          variant="primary"
-          size="large"
-          fullWidth
-          style={{ marginBottom: 12 }}
-        />
+          style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+        >
+          <Text style={{ color: '#fff' }}>Pay Now</Text>
+        </TouchableOpacity>
         
-        <Button
-          title="Back to Review"
+        <TouchableOpacity
           onPress={() => setPaymentStep('review')}
-          variant="outline"
-          size="medium"
-          fullWidth
-        />
-      </Card>
+          style={{ padding: 12, backgroundColor: '#6c757d', borderRadius: 8 }}
+        >
+          <Text style={{ color: '#fff' }}>Back to Review</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   const renderProcessingStep = () => (
     <View style={{ flex: 1, justifyContent: 'center' }}>
-      <LoadingSpinner
-        message="Processing your payment..."
-        overlay={false}
-      />
+      <ActivityIndicator size="large" color="#007bff" />
     </View>
   );
 
   const renderSuccessStep = () => (
     <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
-      <Card variant="elevated" style={{ alignItems: 'center' }}>
+      <View style={{ alignItems: 'center' }}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>🎉</Text>
         <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 12 }}>
           Payment Successful!
@@ -407,18 +399,17 @@ export const IntegratedCheckoutFlow: React.FC = () => {
           </Text>
         )}
 
-        <Button
-          title="Continue Shopping"
+        <TouchableOpacity
           onPress={() => {
             setPaymentStep('review');
             setAppliedReferral(null);
             setReferralCode('');
           }}
-          variant="primary"
-          size="large"
-          fullWidth
-        />
-      </Card>
+          style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+        >
+          <Text style={{ color: '#fff' }}>Continue Shopping</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 

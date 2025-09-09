@@ -11,6 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import BrandLogo from '../../shared/BrandLogo';
+import { appTheme } from '../../theme';
 
 const AuthenticationScreen: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -82,13 +84,14 @@ const AuthenticationScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
+        <BrandLogo size={80} />
         <Text style={styles.title}>
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </Text>
-        
+
         <Text style={styles.subtitle}>
-          {isSignUp 
-            ? 'Join the marketplace and start selling' 
+          {isSignUp
+            ? 'Join the marketplace and start selling'
             : 'Sign in to access your marketplace'
           }
         </Text>
@@ -166,7 +169,7 @@ const AuthenticationScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#6366f1',
+    backgroundColor: appTheme.colors.primary,
   },
   content: {
     flex: 1,
@@ -220,21 +223,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButton: {
-    backgroundColor: '#1f2937',
+    backgroundColor: appTheme.colors.primaryVariant,
     marginTop: 8,
   },
   googleButton: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: appTheme.colors.border,
   },
   buttonText: {
-    color: 'white',
+    color: appTheme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
   googleButtonText: {
-    color: '#374151',
+    color: appTheme.colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
