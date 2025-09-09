@@ -4,6 +4,7 @@ import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events'
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
 import { useDiscoveryListingContext } from '../../../providers/DiscoveryListingProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
+import { appTheme } from '../../theme';
 
 interface Product {
   id: string;
@@ -182,28 +183,28 @@ export const LocationAwareProductList: React.FC = () => {
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 4 }}>
             {product.name}
           </Text>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>
+          <Text style={{ fontSize: 14, color: appTheme.colors.textSecondary, marginBottom: 4 }}>
             {product.merchantName}
           </Text>
-          <Text style={{ fontSize: 16, fontWeight: '500', color: '#2196F3' }}>
+          <Text style={{ fontSize: 16, fontWeight: '500', color: appTheme.colors.primary }}>
             ${product.price.toFixed(2)}
           </Text>
         </View>
         
         <View style={{ alignItems: 'flex-end' }}>
           {product.distance !== undefined && (
-            <Text style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>
+            <Text style={{ fontSize: 12, color: appTheme.colors.textSecondary, marginBottom: 2 }}>
               {product.distance.toFixed(1)} km away
             </Text>
           )}
           {product.referralBoost && product.referralBoost > 0 && (
             <View style={{ 
-              backgroundColor: '#4CAF50', 
+              backgroundColor: appTheme.colors.success, 
               paddingHorizontal: 6, 
               paddingVertical: 2, 
               borderRadius: 4 
             }}>
-              <Text style={{ fontSize: 10, color: 'white', fontWeight: '500' }}>
+              <Text style={{ fontSize: 10, color: appTheme.colors.surface, fontWeight: '500' }}>
                 +{product.referralBoost}% boost
               </Text>
             </View>
@@ -211,7 +212,7 @@ export const LocationAwareProductList: React.FC = () => {
         </View>
       </View>
       
-      <Text style={{ fontSize: 14, color: '#666', marginTop: 8 }}>
+      <Text style={{ fontSize: 14, color: appTheme.colors.textSecondary, marginTop: 8 }}>
         {product.description}
       </Text>
     </TouchableOpacity>
@@ -230,8 +231,8 @@ export const LocationAwareProductList: React.FC = () => {
   return (
     <View style={{ flex: 1, padding: 16 }}>
       {locationLoading && (
-        <View style={{ marginBottom: 16, backgroundColor: '#FFF3CD', padding: 16 }}>
-          <Text style={{ color: '#856404', textAlign: 'center' }}>
+        <View style={{ marginBottom: 16, backgroundColor: appTheme.colors.warning, padding: 16 }}>
+          <Text style={{ color: appTheme.colors.warning, textAlign: 'center' }}>
             Loading location...
           </Text>
         </View>
@@ -246,7 +247,7 @@ export const LocationAwareProductList: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 32 }}>
-            <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
+            <Text style={{ fontSize: 16, color: appTheme.colors.textSecondary, textAlign: 'center' }}>
               No products found in your area.{'\n'}
               Try expanding your search radius or check back later.
             </Text>

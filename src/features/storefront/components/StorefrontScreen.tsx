@@ -191,9 +191,9 @@ const StorefrontScreen: React.FC<StorefrontProps> = ({
             mode="flat"
             style={[
               styles.statusChip,
-              { 
-                backgroundColor: transaction.status === 'completed' ? '#4CAF50' : 
-                                transaction.status === 'pending' ? '#FF9800' : appTheme.colors.danger
+              {
+                backgroundColor: transaction.status === 'completed' ? appTheme.colors.success :
+                                transaction.status === 'pending' ? appTheme.colors.warning : appTheme.colors.danger
               }
             ]}
             textStyle={{ color: 'white' }}

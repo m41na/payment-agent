@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
-import { 
-  Text, 
-  Card, 
-  TextInput, 
-  IconButton, 
-  Avatar, 
+import {
+  Text,
+  Card,
+  TextInput,
+  IconButton,
+  Avatar,
   Divider,
   ActivityIndicator,
   Badge,
@@ -13,6 +13,9 @@ import {
   Chip
 } from 'react-native-paper';
 import { MessagingProps, Message, Conversation } from '../containers/MessagingContainer';
+import PrimaryButton from '../../shared/PrimaryButton';
+import BrandLogo from '../../shared/BrandLogo';
+import { appTheme } from '../../theme';
 
 const MessagingScreen: React.FC<MessagingProps> = ({
   // View state
@@ -284,7 +287,7 @@ const MessagingScreen: React.FC<MessagingProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.background,
   },
   conversationsContainer: {
     flex: 1,
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: appTheme.colors.surface,
   },
   conversationsTitle: {
     fontWeight: '600',
@@ -328,7 +331,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#4caf50',
+    backgroundColor: appTheme.colors.success,
     borderWidth: 2,
     borderColor: '#fff',
   },
@@ -361,7 +364,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   unreadBadge: {
-    backgroundColor: '#6200ee',
+    backgroundColor: appTheme.colors.primary,
     marginLeft: 8,
   },
   loadingContainer: {
@@ -436,11 +439,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   ownMessageBubble: {
-    backgroundColor: '#6200ee',
+    backgroundColor: appTheme.colors.primary,
     borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
-    backgroundColor: '#fff',
+    backgroundColor: appTheme.colors.surface,
     borderBottomLeftRadius: 4,
   },
   messageBubbleWithoutAvatar: {
@@ -450,10 +453,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ownMessageText: {
-    color: '#fff',
+    color: appTheme.colors.surface,
   },
   otherMessageText: {
-    color: '#333',
+    color: appTheme.colors.textPrimary,
   },
   messageFooter: {
     flexDirection: 'row',
@@ -491,7 +494,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   sendButton: {
-    backgroundColor: '#6200ee',
+    backgroundColor: appTheme.colors.primary,
   },
 });
 

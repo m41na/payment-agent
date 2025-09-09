@@ -4,6 +4,7 @@ import { Text, Card, Button, TextInput, Portal, Modal, Title, Chip } from 'react
 import { Calendar } from 'react-native-calendars';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
 import { Event } from '../../../types';
+import { appTheme } from '../../theme';
 import { supabase } from '../../../services/supabase';
 import { useAuth } from '../../user-auth/context/AuthContext';
 
@@ -278,14 +279,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
-    color: '#333',
+    color: appTheme.colors.textPrimary,
   },
   fieldLabel: {
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
     marginTop: 8,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   input: {
     marginBottom: 12,
@@ -301,19 +302,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   locationInfo: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.surfaceElevated,
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
   },
   locationCoords: {
     fontSize: 12,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginBottom: 8,
     fontFamily: 'monospace',
   },
   noLocationText: {
-    color: '#999',
+    color: appTheme.colors.muted,
     fontStyle: 'italic',
     textAlign: 'center',
     padding: 20,
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cancelButton: {
-    borderColor: '#ccc',
+    borderColor: appTheme.colors.border,
   },
 });
 

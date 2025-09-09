@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { useEventListener, EVENT_TYPES } from '../events';
+import { appTheme } from '../features/theme';
 
 // Import integrated feature components
 import DiscoveryListingContainer from '../features/discovery-listing/containers/DiscoveryListingContainer';
@@ -146,12 +147,12 @@ const MainTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: appTheme.colors.primary,
+        tabBarInactiveTintColor: appTheme.colors.textSecondary,
         tabBarStyle: {
           backgroundColor: 'white',
           borderTopWidth: 1,
-          borderTopColor: '#E5E5EA',
+          borderTopColor: appTheme.colors.border,
           paddingTop: 8,
           paddingBottom: 8,
           height: 60,

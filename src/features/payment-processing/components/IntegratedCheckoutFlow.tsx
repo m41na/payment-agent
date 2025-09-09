@@ -278,23 +278,23 @@ export const IntegratedCheckoutFlow: React.FC = () => {
             </View>
             <TouchableOpacity
               onPress={handleApplyReferralCode}
-              style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+              style={{ padding: 12, backgroundColor: appTheme.colors.primary, borderRadius: 8 }}
             >
               <Text style={{ color: '#fff' }}>Apply</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={{ 
-            backgroundColor: '#d4edda', 
+            backgroundColor: appTheme.colors.surfaceElevated, 
             padding: 12, 
             borderRadius: 8,
-            borderColor: '#c3e6cb',
+            borderColor: appTheme.colors.success,
             borderWidth: 1 
           }}>
-            <Text style={{ color: '#155724', fontWeight: '500' }}>
+            <Text style={{ color: appTheme.colors.success, fontWeight: '500' }}>
               ✅ Referral code "{appliedReferral.code}" applied
             </Text>
-            <Text style={{ color: '#155724' }}>
+            <Text style={{ color: appTheme.colors.success }}>
               Discount: ${appliedReferral.discountAmount.toFixed(2)}
             </Text>
           </View>
@@ -310,10 +310,10 @@ export const IntegratedCheckoutFlow: React.FC = () => {
         
         {appliedReferral && (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text style={{ fontSize: 16, color: '#22c55e' }}>
+            <Text style={{ fontSize: 16, color: appTheme.colors.success }}>
               Referral Discount ({appliedReferral.code}):
             </Text>
-            <Text style={{ fontSize: 16, color: '#22c55e' }}>
+            <Text style={{ fontSize: 16, color: appTheme.colors.success }}>
               -${appliedReferral.discountAmount.toFixed(2)}
             </Text>
           </View>
@@ -337,7 +337,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
 
       <TouchableOpacity
         onPress={handleProceedToPayment}
-        style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+        style={{ padding: 12, backgroundColor: appTheme.colors.primary, borderRadius: 8 }}
       >
         <Text style={{ color: '#fff' }}>Proceed to Payment</Text>
       </TouchableOpacity>
@@ -361,14 +361,14 @@ export const IntegratedCheckoutFlow: React.FC = () => {
 
         <TouchableOpacity
           onPress={handleProcessPayment}
-          style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+          style={{ padding: 12, backgroundColor: appTheme.colors.primary, borderRadius: 8 }}
         >
           <Text style={{ color: '#fff' }}>Pay Now</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
           onPress={() => setPaymentStep('review')}
-          style={{ padding: 12, backgroundColor: '#6c757d', borderRadius: 8 }}
+          style={{ padding: 12, backgroundColor: appTheme.colors.textSecondary, borderRadius: 8 }}
         >
           <Text style={{ color: '#fff' }}>Back to Review</Text>
         </TouchableOpacity>
@@ -405,7 +405,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
             setAppliedReferral(null);
             setReferralCode('');
           }}
-          style={{ padding: 12, backgroundColor: '#007bff', borderRadius: 8 }}
+          style={{ padding: 12, backgroundColor: appTheme.colors.primary, borderRadius: 8 }}
         >
           <Text style={{ color: '#fff' }}>Continue Shopping</Text>
         </TouchableOpacity>

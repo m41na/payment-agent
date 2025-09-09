@@ -3,6 +3,7 @@ import { Alert, Linking } from 'react-native';
 import { useStorefrontContext } from '../../../providers/StorefrontProvider';
 import { useAuth } from '../../user-auth/context/AuthContext';
 import ProfileManagementScreen from '../components/ProfileManagementScreen';
+import { appTheme } from '../../theme';
 
 // Types for profile data
 export interface ProfileData {
@@ -107,8 +108,8 @@ const ProfileManagementContainer: React.FC = () => {
   const [businessData, setBusinessData] = useState<BusinessData>({
     storefront_name: '',
     storefront_description: '',
-    primary_color: '#6200ee',
-    accent_color: '#03dac6',
+    primary_color: appTheme.colors.primary,
+    accent_color: appTheme.colors.accent,
     business_street: '',
     business_city: '',
     business_state: '',
@@ -154,8 +155,8 @@ const ProfileManagementContainer: React.FC = () => {
       setBusinessData({
         storefront_name: storefrontProfile.storefront_name || '',
         storefront_description: storefrontProfile.storefront_description || '',
-        primary_color: storefrontProfile.primary_color || '#6200ee',
-        accent_color: storefrontProfile.accent_color || '#03dac6',
+        primary_color: storefrontProfile.primary_color || appTheme.colors.primary,
+        accent_color: storefrontProfile.accent_color || appTheme.colors.accent,
         business_street: storefrontProfile.business_street || '',
         business_city: storefrontProfile.business_city || '',
         business_state: storefrontProfile.business_state || '',
@@ -198,8 +199,8 @@ const ProfileManagementContainer: React.FC = () => {
       setBusinessData({
         storefront_name: storefrontProfile.storefront_name || '',
         storefront_description: storefrontProfile.storefront_description || '',
-        primary_color: storefrontProfile.primary_color || '#6200ee',
-        accent_color: storefrontProfile.accent_color || '#03dac6',
+        primary_color: storefrontProfile.primary_color || appTheme.colors.primary,
+        accent_color: storefrontProfile.accent_color || appTheme.colors.accent,
         business_street: storefrontProfile.business_street || '',
         business_city: storefrontProfile.business_city || '',
         business_state: storefrontProfile.business_state || '',

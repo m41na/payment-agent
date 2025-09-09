@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { appTheme } from '../features/theme';
 
 interface Props {
   children: ReactNode;
@@ -120,11 +121,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: appTheme.colors.background,
     padding: 20,
   },
   errorContent: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     borderRadius: 12,
     padding: 24,
     maxWidth: 400,
@@ -141,19 +142,19 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#dc3545',
+    color: appTheme.colors.danger,
     marginBottom: 12,
     textAlign: 'center',
   },
   errorMessage: {
     fontSize: 16,
-    color: '#6c757d',
+    color: appTheme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 24,
   },
   debugInfo: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: appTheme.colors.background,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
@@ -161,24 +162,24 @@ const styles = StyleSheet.create({
   debugTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#495057',
+    color: appTheme.colors.textPrimary,
     marginBottom: 8,
   },
   debugText: {
     fontSize: 12,
-    color: '#6c757d',
+    color: appTheme.colors.textSecondary,
     fontFamily: 'monospace',
     lineHeight: 16,
   },
   retryButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: appTheme.colors.primary,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
   retryButtonText: {
-    color: 'white',
+    color: appTheme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },

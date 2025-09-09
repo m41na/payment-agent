@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Button, TextInput, Portal, Modal, Title, Chip } from 'react-native-paper';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Text } from 'react-native';
+import { Card, Button, TextInput, Portal, Modal, Title, Chip, HelperText } from 'react-native-paper';
 import { Calendar } from 'react-native-calendars';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
 import { Event } from '../../../types';
 import { supabase } from '../../../services/supabase';
 import { useAuth } from '../../user-auth/context/AuthContext';
+import PrimaryButton from '../../shared/PrimaryButton';
+import { appTheme } from '../../theme';
+import BrandLogo from '../../shared/BrandLogo';
 
 interface EventCreationModalProps {
   visible: boolean;
@@ -13,9 +16,21 @@ interface EventCreationModalProps {
   onSave: (event: Event) => void;
 }
 
+const eventTypes = [
+  { label: 'Workshop', value: 'workshop' },
+  { label: 'Seminar', value: 'seminar' },
+  { label: 'Conference', value: 'conference' },
+  { label: 'Networking', value: 'networking' },
+  { label: 'Training', value: 'training' },
+  { label: 'Meetup', value: 'meetup' },
+  { label: 'Exhibition', value: 'exhibition' },
+  { label: 'Other', value: 'other' },
+];
+
 const EventCreationModal: React.FC<EventCreationModalProps> = ({ visible, onDismiss, onSave }) => {
   const { currentLocation } = useLocationServicesContext();
   const { user } = useAuth();
+
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
@@ -28,38 +43,39 @@ const EventCreationModal: React.FC<EventCreationModalProps> = ({ visible, onDism
     contact_phone: '',
   });
 
-  const eventTypes = [
-    { label: 'Workshop', value: 'workshop' },
-    { label: 'Seminar', value: 'seminar' },
-    { label: 'Conference', value: 'conference' },
-    { label: 'Networking', value: 'networking' },
-    { label: 'Training', value: 'training' },
-    { label: 'Meetup', value: 'meetup' },
-    { label: 'Exhibition', value: 'exhibition' },
-    { label: 'Other', value: 'other' },
-  ];
+  const [errors, setErrors] = useState<Record<string,string>>({});
+
+  const validate = useCallback(() => {
+    const e: Record<string,string> = {};
+    if (!newEvent.title.trim()) e.title = 'Title is required';
+    if (!newEvent.start_date.trim()) e.start_date = 'Start date/time is required';
+    if (!newEvent.end_date.trim()) e.end_date = 'End date/time is required';
+    if (!currentLocation) e.location = 'Location is required';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }, [newEvent, currentLocation]);
 
   const handleSave = async () => {
-    if (!newEvent.title || !newEvent.start_date || !newEvent.end_date || !currentLocation || !user) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!validate() || !user) {
+      Alert.alert('Error', 'Please fill in required fields');
       return;
     }
 
     try {
       const eventData = {
-        title: newEvent.title,
-        description: newEvent.description,
+        title: newEvent.title.trim(),
+        description: newEvent.description.trim(),
         event_type: newEvent.event_type,
         start_date: newEvent.start_date,
         end_date: newEvent.end_date,
         organizer_id: user.id,
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        location_name: newEvent.location_name,
-        address: newEvent.address,
+        latitude: currentLocation?.latitude || null,
+        longitude: currentLocation?.longitude || null,
+        location_name: newEvent.location_name || null,
+        address: newEvent.address || null,
         contact_info: {
-          email: newEvent.contact_email,
-          phone: newEvent.contact_phone,
+          email: newEvent.contact_email || null,
+          phone: newEvent.contact_phone || null,
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -73,179 +89,108 @@ const EventCreationModal: React.FC<EventCreationModalProps> = ({ visible, onDism
 
       if (error) {
         console.error('Error creating event:', error);
-        Alert.alert('Error', 'Failed to create event. Please try again.');
+        Alert.alert('Error', 'Failed to create event.');
         return;
       }
 
-      onSave(data);
+      onSave?.(data);
       handleReset();
       onDismiss();
       Alert.alert('Success', 'Event created successfully!');
-    } catch (error) {
-      console.error('Error creating event:', error);
-      Alert.alert('Error', 'Failed to create event. Please try again.');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to create event.');
     }
   };
 
-  const handleReset = () => {
-    setNewEvent({
-      title: '',
-      description: '',
-      event_type: 'workshop',
-      start_date: '',
-      end_date: '',
-      location_name: '',
-      address: '',
-      contact_email: '',
-      contact_phone: '',
-    });
-  };
+  const handleReset = () => setNewEvent({
+    title: '', description: '', event_type: 'workshop', start_date: '', end_date: '', location_name: '', address: '', contact_email: '', contact_phone: ''
+  });
 
-  const handleCancel = () => {
-    handleReset();
-    onDismiss();
-  };
+  const handleCancel = () => { handleReset(); onDismiss(); };
 
   return (
     <Portal>
-      <Modal
-        visible={visible}
-        onDismiss={handleCancel}
-        contentContainerStyle={styles.modalContainer}
-      >
-        <Card style={styles.modalCard}>
+      <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={styles.modalContainer}>
+        <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.modalTitle}>Create New Event</Title>
-            
+            <View style={styles.header}>
+              <BrandLogo size={48} />
+              <Title style={styles.title}>Create Event</Title>
+            </View>
+
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>📝 Event Details</Text>
-                
-                <TextInput
-                  label="Event Title *"
-                  value={newEvent.title}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, title: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                />
 
-                <TextInput
-                  label="Description"
-                  value={newEvent.description}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, description: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={3}
-                />
+              <TextInput
+                label="Title"
+                value={newEvent.title}
+                onChangeText={(t) => setNewEvent(prev => ({ ...prev, title: t }))}
+                mode="outlined"
+                style={styles.input}
+                error={!!errors.title}
+              />
+              <HelperText type="error" visible={!!errors.title}>{errors.title}</HelperText>
 
-                <Text style={styles.fieldLabel}>Event Type</Text>
-                <View style={styles.chipContainer}>
-                  {eventTypes.map((type) => (
-                    <Chip
-                      key={type.value}
-                      selected={newEvent.event_type === type.value}
-                      onPress={() => setNewEvent(prev => ({ ...prev, event_type: type.value }))}
-                      style={styles.chip}
-                    >
-                      {type.label}
-                    </Chip>
-                  ))}
+              <TextInput
+                label="Description"
+                value={newEvent.description}
+                onChangeText={(t) => setNewEvent(prev => ({ ...prev, description: t }))}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+              />
+
+              <Text style={styles.fieldLabel}>Type</Text>
+              <View style={styles.chipsRow}>
+                {eventTypes.map((et) => (
+                  <Chip key={et.value} mode={newEvent.event_type === et.value ? 'flat' : 'outlined'} onPress={() => setNewEvent(prev => ({ ...prev, event_type: et.value }))} style={styles.chip}>{et.label}</Chip>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>Date & Time</Text>
+              <TextInput
+                label="Start (YYYY-MM-DD HH:MM)"
+                value={newEvent.start_date}
+                onChangeText={(t) => setNewEvent(prev => ({ ...prev, start_date: t }))}
+                mode="outlined"
+                style={styles.input}
+                error={!!errors.start_date}
+              />
+              <HelperText type="error" visible={!!errors.start_date}>{errors.start_date}</HelperText>
+
+              <TextInput
+                label="End (YYYY-MM-DD HH:MM)"
+                value={newEvent.end_date}
+                onChangeText={(t) => setNewEvent(prev => ({ ...prev, end_date: t }))}
+                mode="outlined"
+                style={styles.input}
+                error={!!errors.end_date}
+              />
+              <HelperText type="error" visible={!!errors.end_date}>{errors.end_date}</HelperText>
+
+              <Text style={styles.sectionLabel}>Location</Text>
+              {currentLocation ? (
+                <View style={styles.locationInfo}>
+                  <Text style={styles.locationCoords}>{currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}</Text>
+                  <TextInput label="Location Name" value={newEvent.location_name} onChangeText={(t) => setNewEvent(prev => ({ ...prev, location_name: t }))} mode="outlined" style={styles.input} />
+                  <TextInput label="Address" value={newEvent.address} onChangeText={(t) => setNewEvent(prev => ({ ...prev, address: t }))} mode="outlined" style={styles.input} />
                 </View>
-              </View>
+              ) : (
+                <Text style={styles.noLocationText}>Location not available. Enable location services.</Text>
+              )}
 
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>📅 Date & Time</Text>
-                
-                <TextInput
-                  label="Start Date & Time *"
-                  value={newEvent.start_date}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, start_date: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                  placeholder="YYYY-MM-DD HH:MM"
-                />
+              <Text style={styles.sectionLabel}>Contact</Text>
+              <TextInput label="Contact Email" value={newEvent.contact_email} onChangeText={(t) => setNewEvent(prev => ({ ...prev, contact_email: t }))} mode="outlined" style={styles.input} keyboardType="email-address" />
+              <TextInput label="Contact Phone" value={newEvent.contact_phone} onChangeText={(t) => setNewEvent(prev => ({ ...prev, contact_phone: t }))} mode="outlined" style={styles.input} keyboardType="phone-pad" />
 
-                <TextInput
-                  label="End Date & Time *"
-                  value={newEvent.end_date}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, end_date: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                  placeholder="YYYY-MM-DD HH:MM"
-                />
-              </View>
-
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>📍 Location (Auto-detected)</Text>
-                {currentLocation ? (
-                  <View style={styles.locationInfo}>
-                    <Text style={styles.locationCoords}>
-                      {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-                    </Text>
-                    <TextInput
-                      label="Location Name (Optional)"
-                      value={newEvent.location_name}
-                      onChangeText={(text) => setNewEvent(prev => ({ ...prev, location_name: text }))}
-                      style={styles.input}
-                      mode="outlined"
-                    />
-                    <TextInput
-                      label="Address (Optional)"
-                      value={newEvent.address}
-                      onChangeText={(text) => setNewEvent(prev => ({ ...prev, address: text }))}
-                      style={styles.input}
-                      mode="outlined"
-                    />
-                  </View>
-                ) : (
-                  <Text style={styles.noLocationText}>
-                    Location not available. Please enable location services.
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.formSection}>
-                <Text style={styles.sectionLabel}>📞 Contact Information</Text>
-                
-                <TextInput
-                  label="Contact Email"
-                  value={newEvent.contact_email}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, contact_email: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                  keyboardType="email-address"
-                />
-
-                <TextInput
-                  label="Contact Phone"
-                  value={newEvent.contact_phone}
-                  onChangeText={(text) => setNewEvent(prev => ({ ...prev, contact_phone: text }))}
-                  style={styles.input}
-                  mode="outlined"
-                  keyboardType="phone-pad"
-                />
-              </View>
             </ScrollView>
 
-            <View style={styles.buttonContainer}>
-              <Button
-                mode="outlined"
-                onPress={handleCancel}
-                style={[styles.modalButton, styles.cancelButton]}
-              >
-                Cancel
-              </Button>
-              
-              <Button
-                mode="contained"
-                onPress={handleSave}
-                style={styles.modalButton}
-                disabled={!newEvent.title || !newEvent.start_date || !newEvent.end_date || !currentLocation || !user}
-              >
-                Create Event
-              </Button>
+            <View style={styles.actionsRow}>
+              <Button mode="outlined" onPress={handleCancel} style={styles.actionButton}>Cancel</Button>
+              <PrimaryButton onPress={handleSave} style={styles.actionButton}>Create Event</PrimaryButton>
             </View>
+
           </Card.Content>
         </Card>
       </Modal>
@@ -254,82 +199,21 @@ const EventCreationModal: React.FC<EventCreationModalProps> = ({ visible, onDism
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    maxHeight: '90%',
-  },
-  modalTitle: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  scrollView: {
-    maxHeight: 500,
-  },
-  formSection: {
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    marginTop: 8,
-    color: '#666',
-  },
-  input: {
-    marginBottom: 12,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  chip: {
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  locationInfo: {
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  locationCoords: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-    fontFamily: 'monospace',
-  },
-  noLocationText: {
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 20,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-  },
-  cancelButton: {
-    borderColor: '#ccc',
-  },
+  modalContainer: { flex: 1, justifyContent: 'center', padding: 20 },
+  card: { maxHeight: '90%', borderRadius: 12, overflow: 'hidden' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: '700', color: appTheme.colors.textPrimary },
+  scrollView: { maxHeight: 520 },
+  input: { marginBottom: 12, backgroundColor: appTheme.colors.surface },
+  fieldLabel: { fontSize: 14, color: appTheme.colors.textSecondary, marginBottom: 8 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chip: { marginRight: 8, marginBottom: 8 },
+  sectionLabel: { fontSize: 16, fontWeight: '600', color: appTheme.colors.textPrimary, marginTop: 8, marginBottom: 8 },
+  locationInfo: { backgroundColor: appTheme.colors.surfaceElevated, padding: 12, borderRadius: 8, marginBottom: 12 },
+  locationCoords: { fontSize: 12, color: appTheme.colors.textSecondary, marginBottom: 8, fontFamily: 'monospace' },
+  noLocationText: { color: appTheme.colors.textSecondary, fontStyle: 'italic', textAlign: 'center', padding: 20 },
+  actionsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, gap: 12 },
+  actionButton: { flex: 1 },
 });
 
 export default EventCreationModal;

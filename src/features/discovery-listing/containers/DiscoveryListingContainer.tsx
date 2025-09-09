@@ -5,6 +5,7 @@ import { useShoppingCart } from '../../shopping-cart';
 import { supabase } from '../../../services/supabase';
 import { Product, Event } from '../../../types';
 import DiscoveryListingScreen from '../components/DiscoveryListingScreen';
+import { appTheme } from '../../theme';
 
 export interface DiscoveryListingProps {
   // View state
@@ -129,16 +130,16 @@ const DiscoveryListingContainer: React.FC = () => {
   // Event type colors
   const getEventTypeColor = useCallback((eventType: string) => {
     const colors = {
-      garage_sale: '#ff9800',
-      auction: '#e91e63',
-      farmers_market: '#4caf50',
-      flea_market: '#9c27b0',
-      estate_sale: '#795548',
-      country_fair: '#ffeb3b',
-      craft_fair: '#00bcd4',
-      food_truck: '#ff5722',
-      pop_up_shop: '#3f51b5',
-      other: '#607d8b',
+      garage_sale: appTheme.colors.warning,
+      auction: appTheme.colors.danger,
+      farmers_market: appTheme.colors.success,
+      flea_market: appTheme.colors.accent,
+      estate_sale: appTheme.colors.textSecondary,
+      country_fair: appTheme.colors.warning,
+      craft_fair: appTheme.colors.accent,
+      food_truck: appTheme.colors.warning,
+      pop_up_shop: appTheme.colors.primary,
+      other: appTheme.colors.muted,
     };
     return colors[eventType as keyof typeof colors] || colors.other;
   }, []);

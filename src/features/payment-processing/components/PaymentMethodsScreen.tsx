@@ -13,6 +13,7 @@ import {
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { supabase } from '../../../services/supabase';
 import { PaymentMethodsScreenProps, PaymentMethod } from '../types';
+import { appTheme } from '../../theme';
 
 const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
   paymentMethods,
@@ -129,7 +130,7 @@ const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
             <IconButton
               icon="delete"
               size={20}
-              iconColor="#e91e63"
+              iconColor={appTheme.colors.danger}
               onPress={() => handleRemovePaymentMethod(item.id)}
             />
           </View>
@@ -211,7 +212,7 @@ const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.surfaceElevated,
   },
   loadingContainer: {
     flex: 1,
@@ -221,13 +222,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   header: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: appTheme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: appTheme.colors.border,
   },
   title: {
     textAlign: 'center',
@@ -235,11 +236,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   addButton: {
     margin: 16,
-    backgroundColor: '#6200ee',
+    backgroundColor: appTheme.colors.primary,
   },
   paymentMethodsList: {
     paddingHorizontal: 16,
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandText: {
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginTop: 4,
   },
   paymentMethodActions: {
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   defaultChip: {
-    backgroundColor: '#e8f5e8',
+    backgroundColor: appTheme.colors.surfaceElevated,
     marginRight: 8,
   },
   actionButtons: {
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   setDefaultButton: {
-    borderColor: '#6200ee',
+    borderColor: appTheme.colors.primary,
   },
   emptyState: {
     margin: 16,
@@ -284,11 +285,11 @@ const styles = StyleSheet.create({
   emptyStateText: {
     textAlign: 'center',
     marginBottom: 8,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   emptyStateSubtext: {
     textAlign: 'center',
-    color: '#999',
+    color: appTheme.colors.muted,
   },
 });
 

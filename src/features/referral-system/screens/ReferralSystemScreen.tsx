@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { appTheme } from '../../theme';
 
 const ReferralSystemScreen: React.FC = () => {
   return (
@@ -26,7 +27,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.surfaceElevated,
   },
   title: {
     fontSize: 24,
@@ -35,11 +36,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginBottom: 24,
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
     padding: 16,
     borderRadius: 8,
     marginBottom: 16,
@@ -52,10 +53,10 @@ const styles = StyleSheet.create({
   code: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: appTheme.colors.primary,
     textAlign: 'center',
     padding: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: appTheme.colors.surfaceElevated,
     borderRadius: 8,
   },
 });

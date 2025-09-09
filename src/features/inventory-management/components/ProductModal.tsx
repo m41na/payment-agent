@@ -1,23 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  ScrollView,
   StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   Alert,
+  Text,
 } from 'react-native';
-import {
-  Modal,
-  Portal,
-  Card,
-  Title,
-  Button,
-  IconButton,
-  Chip,
-  HelperText,
-} from 'react-native-paper';
+import { Portal, Modal, Card, TextInput, Button, HelperText, Chip, Surface, IconButton } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
+import PrimaryButton from '../../shared/PrimaryButton';
+import { appTheme } from '../../theme';
 
 interface ProductModalProps {
   visible: boolean;
@@ -27,267 +21,204 @@ interface ProductModalProps {
   location?: any;
 }
 
-const ProductModal: React.FC<ProductModalProps> = ({
-  visible,
-  onDismiss,
-  onSubmit,
-  initialData,
-  location,
-}) => {
-  const [formData, setFormData] = useState({
+const categories = [
+  'electronics',
+  'clothing',
+  'home_garden',
+  'sports_outdoors',
+  'books_media',
+  'toys_games',
+  'automotive',
+  'health_beauty',
+  'collectibles',
+  'other',
+];
+
+const conditions = [
+  { value: 'new', label: 'New' },
+  { value: 'like_new', label: 'Like New' },
+  { value: 'good', label: 'Good' },
+  { value: 'fair', label: 'Fair' },
+  { value: 'poor', label: 'Poor' },
+];
+
+const ProductModal: React.FC<ProductModalProps> = ({ visible, onDismiss, onSubmit, initialData, location }) => {
+  const [formData, setFormData] = useState(() => ({
     title: initialData?.title || '',
     description: initialData?.description || '',
     price: initialData?.price?.toString() || '',
-    category: initialData?.category || 'electronics',
+    category: initialData?.category || categories[0],
     condition: initialData?.condition || 'new',
     quantity: initialData?.quantity?.toString() || '1',
     tags: initialData?.tags || [],
     ...initialData,
-  });
+  }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [newTag, setNewTag] = useState('');
 
-  const categories = [
-    'electronics',
-    'clothing',
-    'home_garden',
-    'sports_outdoors',
-    'books_media',
-    'toys_games',
-    'automotive',
-    'health_beauty',
-    'collectibles',
-    'other',
-  ];
+  useEffect(() => {
+    setFormData({
+      title: initialData?.title || '',
+      description: initialData?.description || '',
+      price: initialData?.price?.toString() || '',
+      category: initialData?.category || categories[0],
+      condition: initialData?.condition || 'new',
+      quantity: initialData?.quantity?.toString() || '1',
+      tags: initialData?.tags || [],
+      ...initialData,
+    });
+    setErrors({});
+  }, [initialData, visible]);
 
-  const conditions = [
-    { value: 'new', label: 'New' },
-    { value: 'like_new', label: 'Like New' },
-    { value: 'good', label: 'Good' },
-    { value: 'fair', label: 'Fair' },
-    { value: 'poor', label: 'Poor' },
-  ];
-
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
-    }
-
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    }
-
-    if (!formData.price || isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
-      newErrors.price = 'Valid price is required';
-    }
-
-    if (!formData.quantity || isNaN(parseInt(formData.quantity)) || parseInt(formData.quantity) <= 0) {
-      newErrors.quantity = 'Valid quantity is required';
-    }
-
+    if (!formData.title || !formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.description || !formData.description.trim()) newErrors.description = 'Description is required';
+    const price = parseFloat(formData.price);
+    if (!formData.price || isNaN(price) || price <= 0) newErrors.price = 'Valid price is required';
+    const qty = parseInt(formData.quantity, 10);
+    if (!formData.quantity || isNaN(qty) || qty <= 0) newErrors.quantity = 'Valid quantity is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
-  const handleSubmit = () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    const productData = {
+  const handleSubmit = useCallback(() => {
+    if (!validateForm()) return;
+    const payload = {
       ...formData,
       price: parseFloat(formData.price),
-      quantity: parseInt(formData.quantity),
-      location: location ? {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        address: location.address || 'Current Location',
-      } : null,
+      quantity: parseInt(formData.quantity, 10),
+      location: location
+        ? { latitude: location.latitude, longitude: location.longitude, address: location.address || 'Current Location' }
+        : null,
     };
+    onSubmit(payload);
+  }, [formData, validateForm, onSubmit, location]);
 
-    onSubmit(productData);
-  };
-
-  const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }));
+  const addTag = useCallback(() => {
+    const tag = newTag.trim();
+    if (!tag) return;
+    if (formData.tags.includes(tag)) {
       setNewTag('');
+      return;
     }
-  };
+    setFormData((prev) => ({ ...prev, tags: [...(prev.tags || []), tag] }));
+    setNewTag('');
+  }, [newTag, formData.tags]);
 
-  const removeTag = (tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter((tag: string) => tag !== tagToRemove),
-    }));
-  };
+  const removeTag = useCallback((tagToRemove: string) => {
+    setFormData((prev) => ({ ...prev, tags: (prev.tags || []).filter((t: string) => t !== tagToRemove) }));
+  }, []);
 
   return (
     <Portal>
-      <Modal
-        visible={visible}
-        onDismiss={onDismiss}
-        contentContainerStyle={styles.modalContainer}
-      >
+      <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.modalContainer}>
         <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.header}>
-              <Title style={styles.title}>
-                {initialData ? 'Edit Product' : 'Add Product'}
-              </Title>
-              <IconButton
-                icon="close"
-                size={24}
-                onPress={onDismiss}
+          <Card.Title
+            title={initialData ? 'Edit Product' : 'Add Product'}
+            subtitle={initialData ? 'Update product details' : 'Create a new product listing'}
+            right={(props) => <IconButton {...props} icon="close" onPress={onDismiss} />}
+          />
+
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flexGrow: 1 }}>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+              <TextInput
+                label="Title"
+                value={formData.title}
+                onChangeText={(t) => setFormData((p) => ({ ...p, title: t }))}
+                mode="outlined"
+                style={styles.input}
+                error={!!errors.title}
               />
-            </View>
+              <HelperText type="error" visible={!!errors.title}>{errors.title}</HelperText>
 
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-              {/* Title */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Title *</Text>
-                <TextInput
-                  style={[styles.input, errors.title && styles.inputError]}
-                  value={formData.title}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
-                  placeholder="Enter product title"
-                />
-                {errors.title && <HelperText type="error">{errors.title}</HelperText>}
-              </View>
+              <TextInput
+                label="Description"
+                value={formData.description}
+                onChangeText={(t) => setFormData((p) => ({ ...p, description: t }))}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={[styles.input, styles.textArea]}
+                error={!!errors.description}
+              />
+              <HelperText type="error" visible={!!errors.description}>{errors.description}</HelperText>
 
-              {/* Description */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Description *</Text>
+              <View style={styles.row}>
                 <TextInput
-                  style={[styles.textArea, errors.description && styles.inputError]}
-                  value={formData.description}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
-                  placeholder="Describe your product"
-                  multiline
-                  numberOfLines={4}
-                />
-                {errors.description && <HelperText type="error">{errors.description}</HelperText>}
-              </View>
-
-              {/* Price */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Price ($) *</Text>
-                <TextInput
-                  style={[styles.input, errors.price && styles.inputError]}
+                  label="Price ($)"
                   value={formData.price}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
-                  placeholder="0.00"
+                  onChangeText={(t) => setFormData((p) => ({ ...p, price: t }))}
+                  mode="outlined"
                   keyboardType="decimal-pad"
+                  style={[styles.input, { flex: 1, marginRight: 8 }]}
+                  error={!!errors.price}
                 />
-                {errors.price && <HelperText type="error">{errors.price}</HelperText>}
-              </View>
 
-              {/* Category */}
+                <TextInput
+                  label="Quantity"
+                  value={formData.quantity}
+                  onChangeText={(t) => setFormData((p) => ({ ...p, quantity: t }))}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  style={[styles.input, { width: 100 }]}
+                  error={!!errors.quantity}
+                />
+              </View>
+              <HelperText type="error" visible={!!errors.price}>{errors.price}</HelperText>
+              <HelperText type="error" visible={!!errors.quantity}>{errors.quantity}</HelperText>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Category</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.category}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                    style={styles.picker}
-                  >
-                    {categories.map((category) => (
-                      <Picker.Item
-                        key={category}
-                        label={category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        value={category}
-                      />
+                <Surface style={styles.pickerSurface}>
+                  <Picker selectedValue={formData.category} onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}>
+                    {categories.map((c) => (
+                      <Picker.Item key={c} label={c.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())} value={c} />
                     ))}
                   </Picker>
-                </View>
+                </Surface>
               </View>
 
-              {/* Condition */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Condition</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.condition}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, condition: value }))}
-                    style={styles.picker}
-                  >
-                    {conditions.map((condition) => (
-                      <Picker.Item
-                        key={condition.value}
-                        label={condition.label}
-                        value={condition.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              {/* Quantity */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Quantity *</Text>
-                <TextInput
-                  style={[styles.input, errors.quantity && styles.inputError]}
-                  value={formData.quantity}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, quantity: text }))}
-                  placeholder="1"
-                  keyboardType="numeric"
-                />
-                {errors.quantity && <HelperText type="error">{errors.quantity}</HelperText>}
-              </View>
-
-              {/* Tags */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Tags</Text>
-                <View style={styles.tagInputContainer}>
-                  <TextInput
-                    style={styles.tagInput}
-                    value={newTag}
-                    onChangeText={setNewTag}
-                    placeholder="Add a tag"
-                    onSubmitEditing={addTag}
-                  />
-                  <Button mode="outlined" onPress={addTag} compact>
-                    Add
-                  </Button>
-                </View>
-                <View style={styles.tagsContainer}>
-                  {formData.tags.map((tag: string, index: number) => (
-                    <Chip
-                      key={index}
-                      mode="flat"
-                      onClose={() => removeTag(tag)}
-                      style={styles.tag}
-                    >
-                      {tag}
-                    </Chip>
+                <View style={styles.conditionRow}>
+                  {conditions.map((c) => (
+                    <Chip key={c.value} mode={formData.condition === c.value ? 'flat' : 'outlined'} onPress={() => setFormData((p) => ({ ...p, condition: c.value }))} style={styles.conditionChip}>{c.label}</Chip>
                   ))}
                 </View>
               </View>
-            </ScrollView>
 
-            <View style={styles.buttonContainer}>
-              <Button
-                mode="outlined"
-                onPress={onDismiss}
-                style={styles.cancelButton}
-              >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleSubmit}
-                style={styles.submitButton}
-              >
-                {initialData ? 'Update' : 'Create'}
-              </Button>
-            </View>
-          </Card.Content>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Tags</Text>
+                <View style={styles.tagInputRow}>
+                  <TextInput
+                    placeholder="Add tag"
+                    value={newTag}
+                    onChangeText={setNewTag}
+                    mode="outlined"
+                    style={styles.tagInput}
+                    onSubmitEditing={addTag}
+                  />
+                  <Button mode="outlined" onPress={addTag} compact style={{ marginLeft: 8 }}>Add</Button>
+                </View>
+                <View style={styles.tagsContainer}>
+                  {(formData.tags || []).map((t: string) => (
+                    <Chip key={t} onClose={() => removeTag(t)} style={styles.tagChip}>{t}</Chip>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ height: 24 }} />
+
+              <View style={styles.actionsRow}>
+                <Button mode="outlined" onPress={onDismiss} style={{ flex: 1, marginRight: 8 }}>Cancel</Button>
+                <PrimaryButton onPress={handleSubmit} style={{ flex: 1 }}> {initialData ? 'Update' : 'Create'}</PrimaryButton>
+              </View>
+
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Card>
       </Modal>
     </Portal>
@@ -295,102 +226,22 @@ const ProductModal: React.FC<ProductModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    maxHeight: '90%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  scrollView: {
-    maxHeight: 400,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  inputError: {
-    borderColor: '#f44336',
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  picker: {
-    height: 50,
-  },
-  tagInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  tagInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  tag: {
-    backgroundColor: '#e3f2fd',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#2196F3',
-  },
+  modalContainer: { flex: 1, justifyContent: 'center', padding: 20 },
+  card: { maxHeight: '90%', borderRadius: 12, overflow: 'hidden' },
+  content: { padding: 16 },
+  input: { marginBottom: 12, backgroundColor: appTheme.colors.surface },
+  textArea: { minHeight: 120, textAlignVertical: 'top' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  inputGroup: { marginBottom: 12 },
+  label: { fontSize: 14, color: appTheme.colors.textSecondary, marginBottom: 8 },
+  pickerSurface: { borderRadius: 8, overflow: 'hidden' },
+  conditionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  conditionChip: { marginRight: 8, marginBottom: 8 },
+  tagInputRow: { flexDirection: 'row', alignItems: 'center' },
+  tagInput: { flex: 1, backgroundColor: appTheme.colors.surface },
+  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  tagChip: { marginRight: 8, marginBottom: 8, backgroundColor: appTheme.colors.surfaceElevated },
+  actionsRow: { flexDirection: 'row', marginTop: 12 },
 });
 
 export default ProductModal;
