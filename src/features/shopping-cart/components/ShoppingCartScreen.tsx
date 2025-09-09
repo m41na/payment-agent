@@ -5,15 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingCart } from '../hooks/useShoppingCart';
-import { useCheckout } from '../hooks/useCheckout';
-import { CartItem, Order } from '../types';
+import { CartItem } from '../types';
+import { AppIcons, IconSizes, IconColors } from '../../../types/icons';
 
 const { width } = Dimensions.get('window');
 
@@ -41,82 +40,89 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
     clearCart,
   } = useShoppingCart();
 
-  const {
-    isProcessing,
-    checkout,
-    expressCheckout,
-    oneTimePayment,
-    calculateTotal,
-  } = useCheckout();
-
+  const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<'cart' | 'summary'>('cart');
 
   const handleUpdateQuantity = useCallback(async (itemId: string, quantity: number) => {
     if (quantity === 0) {
-      Alert.alert(
-        'Remove Item',
-        'Are you sure you want to remove this item from your cart?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Remove', 
-            style: 'destructive',
-            onPress: () => removeFromCart(itemId)
-          },
-        ]
-      );
+      // Alert.alert(
+      //   'Remove Item',
+      //   'Are you sure you want to remove this item from your cart?',
+      //   [
+      //     { text: 'Cancel', style: 'cancel' },
+      //     { 
+      //       text: 'Remove', 
+      //       style: 'destructive',
+      //       onPress: () => removeFromCart(itemId)
+      //     },
+      //   ]
+      // );
     } else {
       await updateCartItem(itemId, { quantity });
     }
   }, [updateCartItem, removeFromCart]);
 
   const handleRemoveItem = useCallback(async (itemId: string) => {
-    Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this item from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          style: 'destructive',
-          onPress: () => removeFromCart(itemId)
-        },
-      ]
-    );
+    // Alert.alert(
+    //   'Remove Item',
+    //   'Are you sure you want to remove this item from your cart?',
+    //   [
+    //     { text: 'Cancel', style: 'cancel' },
+    //     { 
+    //       text: 'Remove', 
+    //       style: 'destructive',
+    //       onPress: () => removeFromCart(itemId)
+    //     },
+    //   ]
+    // );
   }, [removeFromCart]);
 
   const handleClearCart = useCallback(() => {
-    Alert.alert(
-      'Clear Cart',
-      'Are you sure you want to remove all items from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Clear All', 
-          style: 'destructive',
-          onPress: clearCart
-        },
-      ]
-    );
+    // Alert.alert(
+    //   'Clear Cart',
+    //   'Are you sure you want to remove all items from your cart?',
+    //   [
+    //     { text: 'Cancel', style: 'cancel' },
+    //     { 
+    //       text: 'Clear All', 
+    //       style: 'destructive',
+    //       onPress: clearCart
+    //     },
+    //   ]
+    // );
   }, [clearCart]);
 
-  const handleExpressCheckout = useCallback(async () => {
-    const order = await expressCheckout();
-    if (order) {
-      onNavigateToOrders?.();
-    }
-  }, [expressCheckout, onNavigateToOrders]);
-
   const handleOneTimePayment = useCallback(async () => {
-    const order = await oneTimePayment();
-    if (order) {
-      onNavigateToOrders?.();
+    if (!onNavigateToCheckout) {
+      return;
     }
-  }, [oneTimePayment, onNavigateToOrders]);
+    
+    if (isEmpty) {
+      return;
+    }
+    
+    onNavigateToCheckout();
+  }, [onNavigateToCheckout, isEmpty]);
+
+  const handleExpressCheckout = useCallback(async () => {
+    if (!onNavigateToCheckout) {
+      // Alert.alert('Error', 'Checkout navigation not available');
+      return;
+    }
+    
+    if (isEmpty) {
+      // Alert.alert('Empty Cart', 'Please add items to your cart before checkout');
+      return;
+    }
+    
+    // Navigate to checkout screen for express checkout
+    onNavigateToCheckout();
+  }, [onNavigateToCheckout, isEmpty]);
 
   const renderCartItem = (item: CartItem) => {
+    const itemTotal = Math.round((item.unit_price * item.quantity) * 100) / 100;
     console.log('Rendering cart item - unit_price:', item.unit_price);
-    console.log('Rendering cart item - calculated total:', item.unit_price * item.quantity);
+    console.log('Rendering cart item - calculated total:', itemTotal);
     
     return (
     <View key={item.id} style={styles.cartItem}>
@@ -128,7 +134,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
           <Image source={{ uri: item.product_snapshot.image_url }} style={styles.itemImage} />
         ) : (
           <View style={styles.placeholderImage}>
-            <Ionicons name="image-outline" size={32} color="#94a3b8" />
+            <Ionicons name="image" size={32} color="#94a3b8" />
           </View>
         )}
       </TouchableOpacity>
@@ -169,7 +175,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
 
         <View style={styles.itemActions}>
           <Text style={styles.itemTotal}>
-            Total: ${(item.unit_price * item.quantity).toFixed(2)}
+            Total: ${itemTotal.toFixed(2)}
           </Text>
           
           <TouchableOpacity
@@ -187,7 +193,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
   const renderMerchantGroup = (group: any) => (
     <View key={group.seller_id} style={styles.merchantGroup}>
       <View style={styles.merchantHeader}>
-        <Ionicons name="storefront-outline" size={20} color="#667eea" />
+        <Ionicons name="business" size={20} color="#667eea" />
         <Text style={styles.merchantTitle}>{group.merchant_name}</Text>
         <Text style={styles.merchantItemCount}>
           {group.item_count} item{group.item_count !== 1 ? 's' : ''}
@@ -312,7 +318,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
               ) : (
                 <>
                   <Ionicons name="card" size={20} color="#fff" />
-                  <Text style={styles.checkoutButtonText}>Checkout</Text>
+                  <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -529,7 +535,7 @@ const styles = StyleSheet.create({
   },
   merchantSubtotal: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#1e293b',
     textAlign: 'right',
   },

@@ -4,21 +4,22 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../providers/ThemeProvider';
+import { AppIcons } from '../types/icons';
 
 // Screen imports
-import { ProductDiscoveryScreen } from '../screens/ProductDiscoveryScreen';
-import { MessagingScreen } from '../screens/MessagingScreen';
-import { UserProfileScreen } from '../screens/UserProfileScreen';
-import { StorefrontScreen } from '../screens/StorefrontScreen';
-import { CheckoutScreen } from '../screens/CheckoutScreen';
+import { ProductDiscoveryScreen } from './screens/ProductDiscoveryScreen';
+import { MessagingScreen } from './screens/MessagingScreen';
+import { UserProfileScreen } from './screens/UserProfileScreen';
+import { StorefrontScreen } from './screens/StorefrontScreen';
+import { CheckoutScreen } from './screens/CheckoutScreen';
 
 // Feature-specific stack screens
-import { ProductDetailsScreen } from '../features/discovery-listing/screens/ProductDetailsScreen';
-import { ConversationScreen } from '../features/messaging/screens/ConversationScreen';
-import { PaymentMethodsScreen } from '../features/payment-processing/screens/PaymentMethodsScreen';
-import { TransactionHistoryScreen } from '../features/storefront/screens/TransactionHistoryScreen';
-import { ReferralDashboardScreen } from '../features/referral-system/screens/ReferralDashboardScreen';
-import { LocationSettingsScreen } from '../features/location-services/screens/LocationSettingsScreen';
+import { ProductDetailsScreen } from './features/discovery-listing/screens/ProductDetailsScreen';
+import { ConversationScreen } from './features/messaging/screens/ConversationScreen';
+import { PaymentMethodsScreen } from './features/payment-processing/screens/PaymentMethodsScreen';
+import { TransactionHistoryScreen } from './features/storefront/screens/TransactionHistoryScreen';
+import { ReferralDashboardScreen } from './features/referral-system/screens/ReferralDashboardScreen';
+import { LocationSettingsScreen } from './features/location-services/screens/LocationSettingsScreen';
 
 // Navigation types
 export type RootTabParamList = {
@@ -236,7 +237,7 @@ const TabNavigator = () => {
               iconName = focused ? 'person' : 'person-outline';
               break;
             case 'Storefront':
-              iconName = focused ? 'storefront' : 'storefront-outline';
+              iconName = focused ? 'business' : 'business-outline';
               break;
             default:
               iconName = 'help-outline';

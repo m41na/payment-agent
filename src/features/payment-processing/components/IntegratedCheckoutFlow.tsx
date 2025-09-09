@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Alert } from 'react-native';
 import { Button, Card, LoadingSpinner, Modal } from '../../../components/shared';
 import { useEventListener, useEventEmitter, EVENT_TYPES } from '../../../events';
-import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
+import { useShoppingCart } from '../../shopping-cart/hooks/useShoppingCart';
 import { usePaymentProcessingContext } from '../../../providers/PaymentProcessingProvider';
 import { useReferralSystemContext } from '../../../providers/ReferralSystemProvider';
 import { useAuth } from '../../user-auth/context/AuthContext';
@@ -11,7 +11,7 @@ interface CartItem {
   id: string;
   productId: string;
   productName: string;
-  price: number;
+  unit_price: number;
   quantity: number;
   merchantId: string;
   merchantName: string;
@@ -33,8 +33,13 @@ interface ReferralDiscount {
  * - Event System: Real-time updates and cross-feature notifications
  */
 export const IntegratedCheckoutFlow: React.FC = () => {
+  console.log('IntegratedCheckoutFlow rendered');
+  
   const { user } = useAuth();
-  const { cartItems, cartTotal, clearCart } = useShoppingCartContext();
+  const { cart, cartSummary, isEmpty, clearCart } = useShoppingCart();
+  console.log('IntegratedCheckoutFlow - cart:', cart);
+  console.log('IntegratedCheckoutFlow - cartSummary:', cartSummary);
+  console.log('IntegratedCheckoutFlow - isEmpty:', isEmpty);
   const { processPayment, isProcessing } = usePaymentProcessingContext();
   const { applyReferralCode, processReferralReward } = useReferralSystemContext();
   const emitEvent = useEventEmitter();
@@ -58,29 +63,41 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     console.log('Referral code used in checkout:', referralData);
   });
 
-  const finalTotal = appliedReferral 
-    ? cartTotal - appliedReferral.discountAmount
-    : cartTotal;
+  const finalTotal = appliedReferral && cartSummary
+    ? cartSummary.total - appliedReferral.discountAmount
+    : cartSummary?.total || 0;
 
-  const merchantGroups = (cartItems || []).reduce((groups, item) => {
-    if (!groups[item.merchantId]) {
-      groups[item.merchantId] = {
-        merchantId: item.merchantId,
-        merchantName: item.merchantName,
+  const merchantGroups = (cart?.items || []).reduce((groups, item) => {
+    // Use product_snapshot data for merchant info since merchantId/merchantName may not exist
+    const merchantId = item.product_snapshot?.seller_id || 'unknown';
+    const merchantName = item.product_snapshot?.merchant_name || 'Unknown Seller';
+    
+    if (!groups[merchantId]) {
+      groups[merchantId] = {
+        merchantId: merchantId,
+        merchantName: merchantName,
         items: [],
-        subtotal: 0,
+        total: 0
       };
     }
-    groups[item.merchantId].items.push(item);
-    groups[item.merchantId].subtotal += item.price * item.quantity;
+    
+    groups[merchantId].items.push({
+      ...item,
+      productId: item.product_id,
+      productName: item.product_snapshot?.title || 'Unknown Product',
+      merchantId: merchantId,
+      merchantName: merchantName
+    });
+    groups[merchantId].total += item.unit_price * item.quantity;
+    
     return groups;
-  }, {} as Record<string, any>);
+  }, {} as any);
 
   const handleApplyReferralCode = async () => {
     if (!referralCode.trim()) return;
 
     try {
-      const discount = await applyReferralCode(referralCode, cartTotal);
+      const discount = await applyReferralCode(referralCode, cartSummary.total);
       setAppliedReferral(discount);
       
       // Emit referral used event
@@ -106,7 +123,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     await emitEvent(EVENT_TYPES.CHECKOUT_INITIATED, {
       userId: user?.id || '',
       cartTotal: finalTotal,
-      itemCount: (cartItems || []).length,
+      itemCount: (cart?.items || []).length,
       merchantIds: Object.keys(merchantGroups),
       timestamp: new Date(),
     });
@@ -119,7 +136,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
       // Process payments for each merchant (Stripe Connect)
       const paymentPromises = Object.values(merchantGroups).map(async (group: any) => {
         return await processPayment({
-          amount: group.subtotal,
+          amount: group.total,
           currency: 'usd',
           merchantId: group.merchantId,
           customerId: user?.id || '',
@@ -163,13 +180,13 @@ export const IntegratedCheckoutFlow: React.FC = () => {
           }
 
           // Emit product purchased events for each item
-          for (const item of (cartItems || []).filter(i => i.merchantId === result.merchantId)) {
+          for (const item of (cart?.items || []).filter(i => i.merchantId === result.merchantId)) {
             await emitEvent(EVENT_TYPES.PRODUCT_PURCHASED, {
               userId: user?.id || '',
               productId: item.productId,
               merchantId: item.merchantId,
               quantity: item.quantity,
-              price: item.price,
+              price: item.unit_price,
               timestamp: new Date(),
             });
           }
@@ -224,11 +241,11 @@ export const IntegratedCheckoutFlow: React.FC = () => {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16 }}>{item.productName}</Text>
                 <Text style={{ fontSize: 14, color: '#666' }}>
-                  Qty: {item.quantity} × ${item.price.toFixed(2)}
+                  Qty: {item.quantity} × ${item.unit_price.toFixed(2)}
                 </Text>
               </View>
               <Text style={{ fontSize: 16, fontWeight: '500' }}>
-                ${(item.price * item.quantity).toFixed(2)}
+                ${(item.unit_price * item.quantity).toFixed(2)}
               </Text>
             </View>
           ))}
@@ -242,7 +259,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: 16, fontWeight: '600' }}>Subtotal:</Text>
               <Text style={{ fontSize: 16, fontWeight: '600' }}>
-                ${group.subtotal.toFixed(2)}
+                ${group.total.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -286,34 +303,38 @@ export const IntegratedCheckoutFlow: React.FC = () => {
       </Card>
 
       {/* Order Total */}
-      <Card variant="elevated" style={{ marginBottom: 20 }}>
+      <View style={{ marginBottom: 20, backgroundColor: '#fff', padding: 16, borderRadius: 8 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
           <Text style={{ fontSize: 16 }}>Subtotal:</Text>
-          <Text style={{ fontSize: 16 }}>${cartTotal.toFixed(2)}</Text>
+          <Text style={{ fontSize: 16 }}>${(cartSummary?.total || 0).toFixed(2)}</Text>
         </View>
         
         {appliedReferral && (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text style={{ fontSize: 16, color: '#28a745' }}>Referral Discount:</Text>
-            <Text style={{ fontSize: 16, color: '#28a745' }}>
+            <Text style={{ fontSize: 16, color: '#22c55e' }}>
+              Referral Discount ({appliedReferral.code}):
+            </Text>
+            <Text style={{ fontSize: 16, color: '#22c55e' }}>
               -${appliedReferral.discountAmount.toFixed(2)}
             </Text>
           </View>
         )}
         
-        <View style={{ 
-          borderTopWidth: 2, 
-          borderTopColor: '#333', 
-          paddingTop: 8, 
-          flexDirection: 'row', 
-          justifyContent: 'space-between' 
-        }}>
-          <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Total:</Text>
-          <Text style={{ fontSize: 20, fontWeight: 'bold' }}>
+        <View 
+          style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            paddingTop: 8, 
+            borderTopWidth: 1, 
+            borderTopColor: '#e5e7eb' 
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Total:</Text>
+          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
             ${finalTotal.toFixed(2)}
           </Text>
         </View>
-      </Card>
+      </View>
 
       <Button
         title="Proceed to Payment"
@@ -401,7 +422,7 @@ export const IntegratedCheckoutFlow: React.FC = () => {
     </View>
   );
 
-  if ((cartItems || []).length === 0) {
+  if (isEmpty) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>

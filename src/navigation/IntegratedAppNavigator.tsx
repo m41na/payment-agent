@@ -54,9 +54,14 @@ const CommerceStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
         name="ShoppingCart" 
-        component={ShoppingCartScreen}
         options={{ title: 'Shopping Cart' }}
-      />
+      >
+        {({ navigation }) => (
+          <ShoppingCartScreen 
+            onNavigateToCheckout={() => navigation.navigate('Checkout')}
+          />
+        )}
+      </Stack.Screen>
       <Stack.Screen 
         name="Checkout" 
         component={IntegratedCheckoutFlow}
