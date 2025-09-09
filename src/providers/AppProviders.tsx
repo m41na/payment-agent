@@ -6,7 +6,6 @@ import { LoadingProvider } from './LoadingProvider';
 import { EventProvider } from '../events/EventProvider';
 
 // Feature providers - now centralized in providers folder
-import { UserProfileProvider } from './UserProfileProvider';
 import { DiscoveryListingProvider } from './DiscoveryListingProvider';
 import { PaymentProcessingProvider } from './PaymentProcessingProvider';
 import { ReferralSystemProvider } from './ReferralSystemProvider';
@@ -51,8 +50,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
             
             {/* Core Authentication & User Context */}
             <AuthProvider>
-              <UserProfileProvider>
-                
+              
                 {/* Location Services - Foundation for proximity features */}
                 <LocationServicesProvider>
                   
@@ -98,8 +96,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
                   
                 </LocationServicesProvider>
                 
-              </UserProfileProvider>
-            </AuthProvider>
+              </AuthProvider>
             
           </EventProvider>
         </LoadingProvider>

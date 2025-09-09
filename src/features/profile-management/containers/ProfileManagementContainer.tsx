@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert, Linking } from 'react-native';
-import { useUserProfileContext } from '../../../providers/UserProfileProvider';
 import { useStorefrontContext } from '../../../providers/StorefrontProvider';
 import { useAuth } from '../../user-auth/context/AuthContext';
 import ProfileManagementScreen from '../components/ProfileManagementScreen';
@@ -73,13 +72,6 @@ export interface ProfileManagementProps {
 
 const ProfileManagementContainer: React.FC = () => {
   const { 
-    profile, 
-    loading: profileLoading, 
-    updateProfile, 
-    createProfile,
-    refreshProfile 
-  } = useUserProfileContext();
-  const { 
     profile: storefrontProfile, 
     isLoading: storefrontLoading, 
     updateProfile: updateStorefront,
@@ -135,26 +127,26 @@ const ProfileManagementContainer: React.FC = () => {
 
   // Initialize profile data when profile loads
   useEffect(() => {
-    if (profile) {
+    if (storefrontProfile) {
       setProfileData({
-        full_name: profile.full_name || '',
-        phone_number: profile.phone_number || '',
-        social_1: profile.social_1 || '',
-        social_2: profile.social_2 || '',
-        bio: profile.bio || '',
-        notification_preferences: profile.notification_preferences || {
+        full_name: storefrontProfile.storefront_name || '',
+        phone_number: storefrontProfile.business_phone || '',
+        social_1: '',
+        social_2: '',
+        bio: storefrontProfile.storefront_description || '',
+        notification_preferences: {
           email: true,
           sms: false,
           push: true,
         },
-        privacy_settings: profile.privacy_settings || {
+        privacy_settings: {
           profile_visible: true,
           show_phone: false,
           show_email: false,
         },
       });
     }
-  }, [profile]);
+  }, [storefrontProfile]);
 
   // Initialize business data when preferences load
   useEffect(() => {
@@ -184,19 +176,19 @@ const ProfileManagementContainer: React.FC = () => {
 
   // Reset form data to original values
   const resetFormData = useCallback(() => {
-    if (activeTab === 'profile' && profile) {
+    if (activeTab === 'profile' && storefrontProfile) {
       setProfileData({
-        full_name: profile.full_name || '',
-        phone_number: profile.phone_number || '',
-        social_1: profile.social_1 || '',
-        social_2: profile.social_2 || '',
-        bio: profile.bio || '',
-        notification_preferences: profile.notification_preferences || {
+        full_name: storefrontProfile.storefront_name || '',
+        phone_number: storefrontProfile.business_phone || '',
+        social_1: '',
+        social_2: '',
+        bio: storefrontProfile.storefront_description || '',
+        notification_preferences: {
           email: true,
           sms: false,
           push: true,
         },
-        privacy_settings: profile.privacy_settings || {
+        privacy_settings: {
           profile_visible: true,
           show_phone: false,
           show_email: false,
@@ -224,7 +216,7 @@ const ProfileManagementContainer: React.FC = () => {
         storefront_longitude: storefrontProfile.storefront_location?.longitude || 0,
       });
     }
-  }, [activeTab, profile, storefrontProfile]);
+  }, [activeTab, storefrontProfile]);
 
   // Handle save action
   const handleSave = useCallback(async () => {
@@ -232,10 +224,18 @@ const ProfileManagementContainer: React.FC = () => {
       setSaving(true);
       
       if (activeTab === 'profile') {
-        if (profile) {
-          await updateProfile(profileData);
+        const profilePayload = {
+          full_name: profileData.full_name,
+          phone_number: profileData.phone_number,
+          bio: profileData.bio,
+          notification_preferences: profileData.notification_preferences,
+          privacy_settings: profileData.privacy_settings,
+        };
+
+        if (storefrontProfile) {
+          await updateStorefront(profilePayload);
         } else {
-          await createProfile(profileData);
+          await createStorefront(profilePayload);
         }
       } else if (activeTab === 'storefront') {
         const businessPayload = {
@@ -264,7 +264,7 @@ const ProfileManagementContainer: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  }, [activeTab, profile, storefrontProfile, profileData, businessData, updateProfile, createProfile, updateStorefront, createStorefront]);
+  }, [activeTab, storefrontProfile, profileData, businessData, updateStorefront, createStorefront]);
 
   // Handle cancel editing
   const handleCancelEditing = useCallback(() => {
@@ -346,7 +346,7 @@ const ProfileManagementContainer: React.FC = () => {
   }, []);
 
   // Computed values
-  const loading = useMemo(() => profileLoading || storefrontLoading, [profileLoading, storefrontLoading]);
+  const loading = useMemo(() => storefrontLoading, [storefrontLoading]);
   const userEmail = useMemo(() => user?.email || '', [user?.email]);
 
   // Props for the UI component

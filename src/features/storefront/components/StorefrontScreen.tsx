@@ -20,6 +20,8 @@ import {
 } from 'react-native-paper';
 import { StorefrontProps } from '../containers/StorefrontContainer';
 import ProductModal from '../../inventory-management/components/ProductModal';
+import BrandLogo from '../../shared/BrandLogo';
+import { appTheme } from '../../theme';
 
 const StorefrontScreen: React.FC<StorefrontProps> = ({
   // Tab state
@@ -104,7 +106,7 @@ const StorefrontScreen: React.FC<StorefrontProps> = ({
               mode="flat"
               style={[
                 styles.availabilityChip,
-                { backgroundColor: product.is_available ? '#4CAF50' : '#f44336' }
+                { backgroundColor: product.is_available ? appTheme.colors.success : appTheme.colors.danger }
               ]}
               textStyle={{ color: 'white' }}
             >
@@ -191,7 +193,7 @@ const StorefrontScreen: React.FC<StorefrontProps> = ({
               styles.statusChip,
               { 
                 backgroundColor: transaction.status === 'completed' ? '#4CAF50' : 
-                                transaction.status === 'pending' ? '#FF9800' : '#f44336'
+                                transaction.status === 'pending' ? '#FF9800' : appTheme.colors.danger
               }
             ]}
             textStyle={{ color: 'white' }}
@@ -334,7 +336,7 @@ const StorefrontScreen: React.FC<StorefrontProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: appTheme.colors.background,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -353,11 +355,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: appTheme.colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginTop: 4,
   },
   tabContainer: {
@@ -365,7 +367,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   segmentedButtons: {
-    backgroundColor: 'white',
+    backgroundColor: appTheme.colors.surface,
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -391,12 +393,12 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: appTheme.colors.success,
     marginVertical: 4,
   },
   productDescription: {
     fontSize: 14,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   productActions: {
     alignItems: 'flex-end',
@@ -433,18 +435,18 @@ const styles = StyleSheet.create({
   },
   eventDate: {
     fontSize: 14,
-    color: '#2196F3',
+    color: appTheme.colors.primary,
     marginVertical: 4,
   },
   eventDescription: {
     fontSize: 14,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
   },
   eventActions: {
     alignItems: 'flex-end',
   },
   eventTypeChip: {
-    backgroundColor: '#FF9800',
+    backgroundColor: appTheme.colors.warning,
     marginBottom: 8,
   },
   eventFooter: {
@@ -465,16 +467,16 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: appTheme.colors.success,
   },
   transactionDate: {
     fontSize: 12,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginTop: 4,
   },
   transactionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: appTheme.colors.textSecondary,
     marginTop: 8,
   },
   statusChip: {
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
-    backgroundColor: '#2196F3',
+    backgroundColor: appTheme.colors.primary,
   },
   contentContainer: {
     flex: 1,

@@ -13,7 +13,6 @@ import { useProductDiscovery } from '../features/discovery-listing/hooks/useDisc
 import { useStorefront } from '../features/storefront/hooks/useStorefront';
 import { useLocationServices } from '../features/location-services/hooks/useLocationServices';
 import { useReferrals } from '../features/referral-system/hooks/useReferrals';
-import { useUserProfile } from '../features/user-profile/hooks/useUserProfile';
 import Button from '../components/shared/Button';
 import Card from '../components/shared/Card';
 
@@ -48,7 +47,6 @@ export const CrossFeatureIntegrationTest: React.FC = () => {
   const storefront = useStorefront();
   const locationServices = useLocationServices();
   const referrals = useReferrals();
-  const userProfile = useUserProfile();
 
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -130,11 +128,6 @@ export const CrossFeatureIntegrationTest: React.FC = () => {
     // Test Referrals Provider
     if (typeof referrals.generateReferralCode !== 'function') {
       errors.push('Referrals: generateReferralCode function missing');
-    }
-
-    // Test User Profile Provider
-    if (typeof userProfile.updateProfile !== 'function') {
-      errors.push('User Profile: updateProfile function missing');
     }
 
     if (errors.length > 0) {
