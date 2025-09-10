@@ -132,7 +132,7 @@ const PaymentMethodsScreen: React.FC<PaymentMethodsScreenProps> = ({
               <Button
                 mode="contained"
                 compact
-                onPress={() => onSelectPaymentMethod(item.id)}
+                onPress={() => onSelectPaymentMethod(item.stripe_payment_method_id)}
                 style={{ marginRight: 8 }}
               >
                 Use

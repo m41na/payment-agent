@@ -69,24 +69,39 @@ const StorefrontScreen: React.FC<StorefrontProps> = ({
   location
 }) => {
   // Render components
+  const formatCurrency = (value: number) => {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    } catch (e) {
+      return `$${(value || 0).toFixed(2)}`;
+    }
+  };
+
+  const formatNumber = (value: number) => {
+    try {
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
+    } catch (e) {
+      return String(value || 0);
+    }
+  };
+
+  const statsList = [
+    { key: 'totalRevenue', label: 'Total Revenue', value: stats?.totalRevenue || 0, formatter: formatCurrency },
+    { key: 'todayRevenue', label: 'Today Revenue', value: stats?.todayRevenue || 0, formatter: formatCurrency },
+    { key: 'totalSales', label: 'Total Sales', value: stats?.totalSales || 0, formatter: formatNumber },
+    { key: 'activeProducts', label: 'Active Products', value: stats?.activeProducts || 0, formatter: formatNumber },
+  ];
+
   const renderStatsCards = () => (
     <View style={styles.statsContainer}>
-      <Surface style={styles.statCard}>
-        <Text style={styles.statValue}>${stats.totalRevenue.toFixed(2)}</Text>
-        <Text style={styles.statLabel}>Total Revenue</Text>
-      </Surface>
-      <Surface style={styles.statCard}>
-        <Text style={styles.statValue}>${stats.todayRevenue.toFixed(2)}</Text>
-        <Text style={styles.statLabel}>Monthly</Text>
-      </Surface>
-      <Surface style={styles.statCard}>
-        <Text style={styles.statValue}>{stats.totalSales}</Text>
-        <Text style={styles.statLabel}>Sales</Text>
-      </Surface>
-      <Surface style={styles.statCard}>
-        <Text style={styles.statValue}>{stats.activeProducts}</Text>
-        <Text style={styles.statLabel}>Active Products</Text>
-      </Surface>
+      {statsList.map((s) => (
+        <Surface key={s.key} style={styles.statCard} accessibilityRole="summary" accessibilityLabel={`${s.label}: ${s.formatter(s.value)}`}>
+          <View style={styles.statTopRow}>
+            <Text style={styles.statValue}>{s.formatter(s.value)}</Text>
+          </View>
+          <Text style={styles.statLabel}>{s.label}</Text>
+        </Surface>
+      ))}
     </View>
   );
 
@@ -340,27 +355,38 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 0,
+    paddingVertical: 12,
+    marginBottom: 8,
   },
   statCard: {
-    flex: 1,
-    marginHorizontal: 4,
-    padding: 16,
-    alignItems: 'center',
-    borderRadius: 8,
+    minWidth: 140,
+    flexBasis: '48%',
+    marginHorizontal: 2,
+    marginVertical: 6,
+    padding: 14,
+    alignItems: 'flex-start',
+    borderRadius: 10,
     elevation: 2,
+    backgroundColor: appTheme.colors.surface,
+  },
+  statTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
     color: appTheme.colors.primary,
   },
   statLabel: {
     fontSize: 12,
     color: appTheme.colors.textSecondary,
-    marginTop: 4,
+    marginTop: 8,
   },
   tabContainer: {
     paddingHorizontal: 16,

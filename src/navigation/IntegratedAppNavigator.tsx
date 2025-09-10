@@ -39,11 +39,6 @@ const DiscoveryStack = () => {
         component={DiscoveryListingContainer}
         options={{ title: 'Discover' }}
       />
-      <Stack.Screen 
-        name="Checkout" 
-        component={IntegratedCheckoutFlow}
-        options={{ title: 'Checkout' }}
-      />
     </Stack.Navigator>
   );
 };

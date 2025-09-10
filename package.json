@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "dev": "npx expo start --clear --port 8082 --non-interactive",
+    "dev": "npx expo start --clear --port 8082",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

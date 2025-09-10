@@ -67,6 +67,18 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
     await (onClearCart ? onClearCart() : clearCart());
   }, [onClearCart, clearCart]);
 
+  const handleUpdateQuantity = useCallback(async (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      await (onRemoveItem ? onRemoveItem(itemId) : removeFromCart(itemId));
+      return;
+    }
+    await (onUpdateQuantity ? onUpdateQuantity(itemId, quantity) : updateCartItem(itemId, { quantity }));
+  }, [onUpdateQuantity, onRemoveItem, updateCartItem, removeFromCart]);
+
+  const handleRemoveItem = useCallback(async (itemId: string) => {
+    await (onRemoveItem ? onRemoveItem(itemId) : removeFromCart(itemId));
+  }, [onRemoveItem, removeFromCart]);
+
   const renderCartItem = (item: CartItem) => {
     const itemTotal = Math.round((item.unit_price * item.quantity) * 100) / 100;
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
-import { useAuth } from '../../../shared/auth/AuthContext';
+import { useAuth } from '../../user-auth/context/AuthContext';
 import { useStripeConnect } from '../hooks/useStripeConnect';
 import MerchantOnboardingScreen from '../components/MerchantOnboardingScreen';
 

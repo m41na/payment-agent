@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View, Text } from 'react-native';
 import { useInventory } from '../../inventory-management/hooks/useInventory';
 import { usePayment } from '../../payment-processing';
 import { useLocation } from '../../location-services';
@@ -7,6 +7,10 @@ import { useAuth } from '../../../features/user-auth/context/AuthContext';
 import { supabase } from '../../../services/supabase';
 import { Event } from '../../events-management/types';
 import StorefrontScreen from '../components/StorefrontScreen';
+import { useFocusEffect } from '@react-navigation/native';
+import MerchantPlanPurchaseModal from '../../merchant-onboarding/components/MerchantPlanPurchaseModal';
+import MerchantOnboardingContainer from '../../merchant-onboarding/containers/MerchantOnboardingContainer';
+import { useSubscription as useSubscriptionHook } from '../../payment-processing/hooks/useSubscription';
 
 export interface StorefrontProps {
   // Tab state
@@ -74,11 +78,14 @@ const StorefrontContainer: React.FC = () => {
     refreshProducts 
   } = useInventory();
   
-  const { 
-    transactions, 
-    loading: loadingTransactions, 
-    fetchTransactions 
+  const {
+    transactions,
+    loading: loadingTransactions,
+    fetchTransactions
   } = usePayment();
+
+  // Subscription hook (used to determine merchant status and purchases)
+  const subscription = useSubscriptionHook();
 
   // Events management - direct state instead of hook
   const [events, setEvents] = useState<Event[]>([]);
@@ -159,12 +166,64 @@ const StorefrontContainer: React.FC = () => {
     loadEvents();
   }, [loadEvents]);
 
+  // When the storefront tab is focused, check if user needs to purchase a merchant plan
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      const checkMerchantStatus = async () => {
+        if (!user) return;
+        try {
+          const { data: profile } = await supabase
+            .from('pg_profiles')
+            .select('subscription_status, merchant_status, current_plan_id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!mounted) return;
+
+          const needsMerchantPlan = profile &&
+            profile.subscription_status === 'none' &&
+            profile.merchant_status === 'none' &&
+            (profile.current_plan_id === null || profile.current_plan_id === undefined);
+
+          if (needsMerchantPlan) {
+            // Fetch plans and present modal
+            await subscription.refreshPlans();
+            const plans = subscription.subscriptionPlans || [];
+            setSelectedPlan(plans[0] || null);
+            setShowPlanModal(true);
+          }
+        } catch (err) {
+          // Ignore silently
+          console.error('Error checking merchant status:', err);
+        }
+      };
+
+      checkMerchantStatus();
+      return () => { mounted = false; };
+    }, [user, subscription])
+  );
+
+  // When subscription status updates (e.g. user purchased a plan), open onboarding if needed
+  React.useEffect(() => {
+    if (subscription.hasActiveSubscription && showPlanModal) {
+      // Close plan modal and start onboarding
+      setShowPlanModal(false);
+      setShowOnboardingScreen(true);
+    }
+  }, [subscription.hasActiveSubscription, showPlanModal]);
+
   // State management
   const [selectedTab, setSelectedTab] = useState<'products' | 'events' | 'transactions'>('products');
   const [showProductModal, setShowProductModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+
+  // Merchant onboarding modal state
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [showOnboardingScreen, setShowOnboardingScreen] = useState(false);
 
   // Load transactions on mount
   useEffect(() => {
@@ -390,7 +449,56 @@ const StorefrontContainer: React.FC = () => {
     location
   };
 
-  return <StorefrontScreen {...storefrontProps} />;
+  const merchantOnboarding = require('../../../providers/MerchantOnboardingProvider').useMerchantOnboardingContext();
+
+  const isStripeOnboarded = merchantOnboarding?.onboardingStatus?.stripeOnboardingComplete;
+
+  return (
+    <>
+      {!isStripeOnboarded ? (
+        // Gate: show onboarding flow / modal until Stripe Connect onboarding complete
+        <>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, color: '#666', padding: 16, textAlign: 'center' }}>
+              To access your Storefront you must complete merchant onboarding.
+              Tap the button below to get started.
+            </Text>
+          </View>
+
+          <MerchantPlanPurchaseModal
+            visible={showPlanModal}
+            onClose={() => setShowPlanModal(false)}
+            selectedPlan={selectedPlan}
+          />
+
+          {showOnboardingScreen && (
+            <MerchantOnboardingContainer onComplete={async () => {
+              setShowOnboardingScreen(false);
+              try { await subscription.refreshSubscription(); } catch (e) {}
+            }} />
+          )}
+        </>
+      ) : (
+        <>
+          <StorefrontScreen {...storefrontProps} />
+
+          {/* Still keep modal available in case user needs to purchase/upgrade */}
+          <MerchantPlanPurchaseModal
+            visible={showPlanModal}
+            onClose={() => setShowPlanModal(false)}
+            selectedPlan={selectedPlan}
+          />
+
+          {showOnboardingScreen && (
+            <MerchantOnboardingContainer onComplete={async () => {
+              setShowOnboardingScreen(false);
+              try { await subscription.refreshSubscription(); } catch (e) {}
+            }} />
+          )}
+        </>
+      )}
+    </>
+  );
 };
 
 export default StorefrontContainer;

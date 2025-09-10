@@ -171,18 +171,21 @@ export const usePayment = () => {
     if (!checkoutService) throw new Error('Checkout service not available');
     
     try {
+      console.log('[usePayment] processCheckout starting', { flow, options });
       setLoading(true);
       setError(null);
       const result = await checkoutService.processCheckout(flow, options);
-      
+      console.log('[usePayment] processCheckout result', result);
+
       if (result.success) {
         await fetchTransactions(); // Refresh transactions
       } else {
         setError(result.error || 'Checkout failed');
       }
-      
+
       return result;
     } catch (err) {
+      console.error('[usePayment] processCheckout error', err);
       const errorMessage = err instanceof Error ? err.message : 'Checkout failed';
       setError(errorMessage);
       return {

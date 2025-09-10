@@ -2,6 +2,9 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { PaymentService } from './PaymentService';
 import { CheckoutOptions, CheckoutFlow, PaymentResult, PaymentError } from '../types';
 
+// Global guard to ensure only one payment sheet is presented across the app
+let globalPaymentSheetInProgress = false;
+
 export class CheckoutService {
   private paymentService: PaymentService;
   private stripe: any;
@@ -97,50 +100,86 @@ export class CheckoutService {
   }
 
   private async oneTimeCheckout(options: CheckoutOptions): Promise<PaymentResult> {
-    // Create payment intent without saved method (triggers payment sheet)
-    const intent = await this.paymentService.createPaymentIntent({
-      amount: options.amount,
-      description: options.description
-      // No paymentMethodId - will use payment sheet
-    });
-
-    // Initialize and present payment sheet
-    const { initPaymentSheet, presentPaymentSheet } = this.stripe;
-
-    // Get client secret for payment sheet
-    const clientSecret = intent.clientSecret;
-
-    if (!clientSecret) {
-      throw this.createError('Missing client secret for payment sheet', 'stripe');
+    // Prevent multiple simultaneous payment sheet presentations across the app
+    if (globalPaymentSheetInProgress) {
+      return {
+        success: false,
+        error: 'Another payment is already in progress'
+      };
     }
+    globalPaymentSheetInProgress = true;
 
-    const { error: initError } = await initPaymentSheet({
-      merchantDisplayName: 'Payment Agent',
-      paymentIntentClientSecret: clientSecret,
-      allowsDelayedPaymentMethods: false,
-      returnURL: 'payment-agent://payment-return',
-    });
+    try {
+      console.log('[CheckoutService] oneTimeCheckout - creating payment intent', { amount: options.amount });
+      // Create payment intent without saved method (triggers payment sheet)
+      const intent = await this.paymentService.createPaymentIntent({
+        amount: options.amount,
+        description: options.description
+        // No paymentMethodId - will use payment sheet
+      });
 
-    if (initError) {
-      throw this.createError(`Payment sheet setup failed: ${initError.message}`, 'stripe');
+      console.log('[CheckoutService] oneTimeCheckout - payment intent created', { paymentIntentId: intent.paymentIntentId, clientSecret: Boolean(intent.clientSecret) });
+
+      // Initialize and present payment sheet
+      const { initPaymentSheet, presentPaymentSheet } = this.stripe;
+
+      // Get client secret for payment sheet
+      const clientSecret = intent.clientSecret;
+
+      if (!clientSecret) {
+        console.error('[CheckoutService] Missing client secret for payment sheet');
+        throw this.createError('Missing client secret for payment sheet', 'stripe');
+      }
+
+      console.log('[CheckoutService] initialising payment sheet');
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'Payment Agent',
+        paymentIntentClientSecret: clientSecret,
+        allowsDelayedPaymentMethods: false,
+        returnURL: 'payment-agent://payment-return',
+      });
+
+      if (initError) {
+        console.error('[CheckoutService] payment sheet init error', initError);
+        throw this.createError(`Payment sheet setup failed: ${initError.message}`, 'stripe');
+      }
+
+      console.log('[CheckoutService] presenting payment sheet');
+      // Present payment sheet but guard with a timeout to avoid hanging native callbacks
+      const presentTimeoutMs = 20000; // 20s
+      const presentPromise = presentPaymentSheet();
+      const timeoutPromise = new Promise<{ error?: any }>((resolve) => {
+        const id = setTimeout(() => {
+          clearTimeout(id);
+          resolve({ error: { message: 'Payment sheet presentation timed out' } });
+        }, presentTimeoutMs);
+      });
+      const { error: presentError } = await Promise.race([presentPromise, timeoutPromise]);
+
+      if (presentError) {
+        console.error('[CheckoutService] payment sheet present error', presentError);
+        throw this.createError(`Payment cancelled or failed: ${presentError.message}`, 'stripe');
+      }
+
+      console.log('[CheckoutService] payment sheet presented and completed');
+
+      // After presenting the payment sheet, the payment should be processed by Stripe.
+      // However, the server is the source of truth for transaction recording. The caller
+      // should refresh transactions via the payment hook's fetchTransactions after a
+      // successful result to ensure Stripe recorded the payment.
+      return {
+        success: true,
+        paymentIntentId: intent.paymentIntentId,
+        clientSecret: intent.clientSecret,
+        status: intent.status,
+      };
+    } catch (err) {
+      console.error('[CheckoutService] oneTimeCheckout error', err);
+      throw err;
+    } finally {
+      console.log('[CheckoutService] oneTimeCheckout finalizing, clearing global flag');
+      globalPaymentSheetInProgress = false;
     }
-
-    const { error: presentError } = await presentPaymentSheet();
-
-    if (presentError) {
-      throw this.createError(`Payment cancelled or failed: ${presentError.message}`, 'stripe');
-    }
-
-    // After presenting the payment sheet, the payment should be processed by Stripe.
-    // However, the server is the source of truth for transaction recording. The caller
-    // should refresh transactions via the payment hook's fetchTransactions after a
-    // successful result to ensure Stripe recorded the payment.
-    return {
-      success: true,
-      paymentIntentId: intent.paymentIntentId,
-      clientSecret: intent.clientSecret,
-      status: intent.status,
-    };
   }
 
 
