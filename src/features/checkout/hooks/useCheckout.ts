@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../user-auth/context/AuthContext';
 import { usePayment } from '../../payment-processing';
-import { useShoppingCart } from '../../shopping-cart';
+import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
 import { OrderService } from '../services/OrderService';
 import { Order, PaymentOption, CheckoutSummary } from '../types';
 
@@ -15,7 +15,8 @@ export const useCheckout = () => {
     oneTimeCheckout,
     selectiveCheckout 
   } = usePayment();
-  const { cartItems, clearCart } = useShoppingCart();
+  const { cart, clearCart } = useShoppingCartContext();
+  const cartItems = cart?.items || [];
   
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [selectedPaymentOption, setSelectedPaymentOption] = useState<PaymentOption | null>(null);

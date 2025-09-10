@@ -10,67 +10,62 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useShoppingCart } from '../hooks/useShoppingCart';
-import { CartItem } from '../types';
+import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
+import { CartItem, ShoppingCartScreenProps, Order } from '../types';
 import PrimaryButton from '../../shared/PrimaryButton';
 import BrandLogo from '../../shared/BrandLogo';
 import { appTheme } from '../../theme';
 
-const { width } = Dimensions.get('window');
-
-interface ShoppingCartScreenProps {
-  onNavigateToOrders?: () => void;
-  onNavigateToProduct?: (productId: string) => void;
-  onNavigateToCheckout?: () => void;
-  onCheckout?: () => void; // fallback for older containers
-  orderNotification?: boolean;
-}
-
 const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
+  // view state
+  activeTab,
+  loading,
+  checkoutLoading,
+
+  // cart data (container may provide but hooks also available)
+  cartItems: propsCartItems,
+  cartTotal,
+  cartItemCount,
+
+  // orders
+  orders = [],
+
+  // actions
+  onTabChange,
+  onUpdateQuantity,
+  onRemoveItem,
+  onClearCart,
+  onCheckout,
+  onNavigateToCheckout,
   onNavigateToOrders,
   onNavigateToProduct,
-  onNavigateToCheckout,
+  onViewOrderDetails,
+
+  // misc
   orderNotification = false,
 }) => {
   const {
     cart,
     cartSummary,
     merchantGroups,
-    isEmpty,
+    isEmpty: hookIsEmpty,
     itemCount,
     isCartLoading,
     cartError,
     updateCartItem,
     removeFromCart,
     clearCart,
-  } = useShoppingCart();
+  } = useShoppingCartContext();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cart' | 'summary'>('cart');
 
-  const handleUpdateQuantity = useCallback(async (itemId: string, quantity: number) => {
-    if (quantity <= 0) {
-      await removeFromCart(itemId);
-      return;
-    }
-    await updateCartItem(itemId, { quantity });
-  }, [updateCartItem, removeFromCart]);
+  // Use global hook values directly to ensure reactivity
+  const effectiveIsEmpty = typeof hookIsEmpty === 'boolean' ? hookIsEmpty : !(cart && Array.isArray(cart.items) && cart.items.length > 0);
+  const effectiveCartItems = cart && Array.isArray(cart.items) ? cart.items : (propsCartItems || []);
 
-  const handleRemoveItem = useCallback(async (itemId: string) => {
-    await removeFromCart(itemId);
-  }, [removeFromCart]);
-
-  const handleClearCart = useCallback(async () => {
-    await clearCart();
-  }, [clearCart]);
-
-  const handleOneTimePayment = useCallback(() => {
-    if (!onNavigateToCheckout || isEmpty) return;
-    onNavigateToCheckout();
-  }, [onNavigateToCheckout, isEmpty]);
-
-  // Express checkout removed from Cart screen — express checkout belongs in the Checkout view
-  const handleExpressCheckout = undefined;
+  const handleClearCartLocal = useCallback(async () => {
+    await (onClearCart ? onClearCart() : clearCart());
+  }, [onClearCart, clearCart]);
 
   const renderCartItem = (item: CartItem) => {
     const itemTotal = Math.round((item.unit_price * item.quantity) * 100) / 100;
@@ -145,7 +140,7 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
 
   const renderCartTab = () => (
     <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      {isEmpty ? (
+      {effectiveIsEmpty ? (
         <View style={styles.emptyCart}>
           <Ionicons name="cart-outline" size={72} color={appTheme.colors.muted} />
           <Text style={styles.emptyCartTitle}>Your cart is empty</Text>
@@ -155,8 +150,8 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
       ) : (
         <>
           <View style={styles.cartHeader}>
-            <Text style={styles.cartTitle}>Shopping Cart ({itemCount} item{itemCount !== 1 ? 's' : ''})</Text>
-            <TouchableOpacity style={styles.clearCartButton} onPress={handleClearCart}>
+            <Text style={styles.cartTitle}>Shopping Cart ({(cart && cart.items ? cart.items.length : (propsCartItems || []).length)} item{(cart && cart.items ? cart.items.length : (propsCartItems || []).length) !== 1 ? 's' : ''})</Text>
+            <TouchableOpacity style={styles.clearCartButton} onPress={handleClearCartLocal}>
               <Text style={styles.clearCartText}>Clear All</Text>
             </TouchableOpacity>
           </View>
@@ -164,10 +159,6 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
           {merchantGroups.map(renderMerchantGroup)}
 
           <View style={styles.checkoutSection}>
-            <View style={styles.cartSummaryQuick}>
-              <Text style={styles.quickSummaryText}>{itemCount} item{itemCount !== 1 ? 's' : ''} • ${cartSummary?.subtotal.toFixed(2)}</Text>
-            </View>
-
             <PrimaryButton onPress={() => { if (onNavigateToCheckout) onNavigateToCheckout(); else onCheckout?.(); }} disabled={isProcessing} fullWidth>
               Proceed to Checkout
             </PrimaryButton>
@@ -177,39 +168,32 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
     </ScrollView>
   );
 
-  const renderSummaryTab = () => (
+  const renderOrderHistoryTab = () => (
     <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      {cartSummary && (
-        <View style={styles.summaryContainer}>
-          <Text style={styles.summaryTitle}>Order Summary</Text>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Items ({cartSummary.total_items})</Text>
-            <Text style={styles.summaryValue}>${cartSummary.subtotal.toFixed(2)}</Text>
+      <View style={{ padding: 16 }}>
+        {orders.length === 0 ? (
+          <View style={styles.emptyCart}>
+            <Text style={styles.emptyCartTitle}>No orders yet</Text>
+            <Text style={styles.emptyCartText}>Your recent purchases will appear here.</Text>
           </View>
+        ) : (
+          orders.map((order: Order) => (
+            <View key={order.id} style={[styles.card, { marginBottom: 12 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontWeight: '700' }}>Order #{order.order_number}</Text>
+                <Text style={{ color: appTheme.colors.textSecondary }}>{new Date(order.created_at).toLocaleDateString()}</Text>
+              </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Estimated Tax</Text>
-            <Text style={styles.summaryValue}>${cartSummary.estimated_tax.toFixed(2)}</Text>
-          </View>
+              <Text style={{ marginBottom: 8 }}>{order.items.length} item{order.items.length !== 1 ? 's' : ''} • ${order.total_amount.toFixed(2)}</Text>
+              <Text style={{ marginBottom: 8, color: appTheme.colors.muted }}>Status: {order.status}</Text>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Shipping ({cartSummary.unique_merchants} merchant{cartSummary.unique_merchants !== 1 ? 's' : ''})</Text>
-            <Text style={styles.summaryValue}>${cartSummary.estimated_shipping.toFixed(2)}</Text>
-          </View>
-
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${cartSummary.estimated_total.toFixed(2)}</Text>
-          </View>
-
-          <View style={styles.checkoutButtons}>
-            <PrimaryButton onPress={() => { if (onNavigateToCheckout) onNavigateToCheckout(); else onCheckout?.(); }} style={[styles.primaryButton, { marginTop: 12 }]} fullWidth>
-              Proceed to Checkout
-            </PrimaryButton>
-          </View>
-        </View>
-      )}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <PrimaryButton onPress={() => onViewOrderDetails?.(order.id)} style={{ paddingHorizontal: 12 }}>View</PrimaryButton>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
     </ScrollView>
   );
 
@@ -240,28 +224,28 @@ const ShoppingCartScreen: React.FC<ShoppingCartScreenProps> = ({
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'cart' && styles.activeTab]} onPress={() => setActiveTab('cart')}>
+        <TouchableOpacity style={[styles.tab, activeTab === 'cart' && styles.activeTab]} onPress={() => onTabChange?.('cart')}>
           <Ionicons name="cart" size={20} color={activeTab === 'cart' ? appTheme.colors.primary : appTheme.colors.muted} />
           <Text style={[styles.tabText, activeTab === 'cart' && styles.activeTabText]}>Cart</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'summary' && styles.activeTab]}
-          onPress={() => { if (!isEmpty) setActiveTab('summary'); }}
-          disabled={isEmpty}
+          style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
+          onPress={() => { if (!effectiveIsEmpty) onTabChange?.('orders'); }}
+          disabled={effectiveIsEmpty}
         >
           <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="receipt" size={20} color={activeTab === 'summary' ? appTheme.colors.primary : appTheme.colors.muted} />
+            <Ionicons name="receipt" size={20} color={activeTab === 'orders' ? appTheme.colors.primary : appTheme.colors.muted} />
             {orderNotification && (
               <View style={styles.notificationDot} />
             )}
           </View>
 
-          <Text style={[styles.tabText, activeTab === 'summary' && styles.activeTabText, isEmpty && styles.disabledTabText]}>Summary</Text>
+          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText, effectiveIsEmpty && styles.disabledTabText]}>Order History</Text>
         </TouchableOpacity>
       </View>
 
-      {activeTab === 'cart' ? renderCartTab() : renderSummaryTab()}
+      {activeTab === 'cart' ? renderCartTab() : renderOrderHistoryTab()}
     </View>
   );
 };
@@ -330,6 +314,7 @@ const styles = StyleSheet.create({
   checkoutSection: { backgroundColor: appTheme.colors.surface, padding: 16, borderRadius: 12, marginBottom: 16, marginHorizontal: 16 },
   cartSummaryQuick: { marginBottom: 12 },
   quickSummaryText: { fontSize: 14, color: appTheme.colors.textSecondary },
+  card: { backgroundColor: appTheme.colors.surface, padding: 12, borderRadius: 10, elevation: 2 },
 });
 
 export default ShoppingCartScreen;

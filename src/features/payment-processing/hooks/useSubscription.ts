@@ -94,14 +94,17 @@ export const useSubscription = () => {
       setError(null);
       
       // Create payment intent for one-time purchase
-      const paymentIntentId = await paymentService.createPaymentIntent({
+      const intent = await paymentService.createPaymentIntent({
         amount: plan.price_amount,
         description: `${plan.name} subscription`
       });
 
+      const clientSecret = intent.clientSecret;
+      if (!clientSecret) throw new Error('Missing client secret for subscription payment');
+
       // Initialize payment sheet
       const { error: initError } = await stripe.initPaymentSheet({
-        paymentIntentClientSecret: paymentIntentId,
+        paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Payment Agent',
         style: 'alwaysDark',
       });

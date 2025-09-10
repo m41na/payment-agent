@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useLocationServicesContext } from '../../../providers/LocationServicesProvider';
-import { useShoppingCart } from '../../shopping-cart';
+import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
 import { supabase } from '../../../services/supabase';
 import { Product, Event } from '../../../types';
 import DiscoveryListingScreen from '../components/DiscoveryListingScreen';
@@ -64,7 +65,7 @@ export interface DiscoveryListingProps {
 
 const DiscoveryListingContainer: React.FC = () => {
   const { currentLocation, getCurrentLocation } = useLocationServicesContext();
-  const { addToCart, isLoading: cartLoading } = useShoppingCart();
+  const { addToCart, isLoading: cartLoading } = useShoppingCartContext();
   
   // State management
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'calendar'>('list');
@@ -252,10 +253,13 @@ const DiscoveryListingContainer: React.FC = () => {
   /**
    * Handle adding product to cart
    */
+  // navigation hook to allow switching tabs
+  const navigation = useNavigation<any>();
+
   const handleAddToCart = useCallback(async (product: Product) => {
     try {
       setIsAddingToCart(true);
-      
+
       await addToCart({
         product_id: product.id,
         title: product.title,
@@ -274,8 +278,12 @@ const DiscoveryListingContainer: React.FC = () => {
         [
           { text: 'Continue Shopping', style: 'cancel' },
           { text: 'View Cart', onPress: () => {
-            // TODO: Navigate to cart tab
-            console.log('Navigate to cart');
+            // Navigate to cart tab (CommerceTab -> ShoppingCart)
+            try {
+              navigation.navigate('CommerceTab', { screen: 'ShoppingCart' });
+            } catch (err) {
+              console.warn('Navigation to cart failed:', err);
+            }
           }}
         ]
       );
@@ -289,7 +297,7 @@ const DiscoveryListingContainer: React.FC = () => {
     } finally {
       setIsAddingToCart(false);
     }
-  }, [addToCart]);
+  }, [addToCart, navigation]);
 
   const handleLoadMore = useCallback(() => {
     // TODO: Implement pagination

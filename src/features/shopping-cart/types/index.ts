@@ -252,6 +252,9 @@ export interface ShoppingCartScreenProps {
   onSavedPaymentCheckout: (paymentMethodId: string) => void;
   onRefreshOrders: () => void;
   onViewOrderDetails: (orderId: string) => void;
+  // Navigation helpers (optional)
+  onNavigateToOrders?: () => void;
+  onNavigateToProduct?: (productId: string) => void;
 }
 
 export interface UseCartReturn {

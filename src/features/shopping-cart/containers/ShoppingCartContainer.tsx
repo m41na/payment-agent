@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { usePayment } from '../../../contexts/PaymentContext';
+import { usePayment } from '../../payment-processing';
 import { supabase } from '../../../services/supabase';
 import ShoppingCartScreen from '../components/ShoppingCartScreen';
 import {
@@ -9,11 +9,12 @@ import {
   ShoppingCartScreenProps
 } from '../types';
 import { useOrderRealtime } from '../hooks/useOrderRealtime';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useShoppingCartContext } from '../../../providers/ShoppingCartProvider';
 
 const ShoppingCartContainer: React.FC = () => {
   // State management
   const [activeTab, setActiveTab] = useState<'cart' | 'orders'>('cart');
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -22,38 +23,30 @@ const ShoppingCartContainer: React.FC = () => {
   // Payment context
   const { expressCheckout } = usePayment();
 
-  
-  
-  // Business logic: Load cart items from storage/database
-  const loadCartItems = useCallback(async () => {
-    try {
-      // Load from local storage or database
-      // For now, using mock data
-      const mockCartItems: CartItem[] = [
-        {
-          id: '1',
-          title: 'Vintage Coffee Table',
-          price: 45.99,
-          quantity: 1,
-          merchant: 'Sarah\'s Antiques',
-          merchantId: 'merchant_1',
-          productId: 'product_1',
-        },
-        {
-          id: '2',
-          title: 'Garden Tools Set',
-          price: 25.00,
-          quantity: 2,
-          merchant: 'Mike\'s Hardware',
-          merchantId: 'merchant_2',
-          productId: 'product_2',
-        },
-      ];
-      setCartItems(mockCartItems);
-    } catch (error) {
-      console.error('Error loading cart items:', error);
-    }
-  }, []);
+  // Navigation
+  const navigation = useNavigation();
+
+  // Global cart hook (single source of truth)
+  const {
+    cart,
+    cartSummary,
+    merchantGroups,
+    isEmpty: globalIsEmpty,
+    itemCount: globalItemCount,
+    isCartLoading,
+    cartError,
+    updateCartItem,
+    removeFromCart,
+    clearCart: clearGlobalCart,
+    refreshCart,
+  } = useShoppingCartContext();
+
+  // Local derived values come from the global cart
+  const cartItems = cart?.items || [];
+  const cartTotal = cartSummary?.subtotal || 0;
+  const cartItemCount = globalItemCount || 0;
+
+  // Note: previous local mock loader removed — use global cart data instead
 
   // Business logic: Load order history
   const loadOrders = useCallback(async () => {
@@ -74,29 +67,46 @@ const ShoppingCartContainer: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      
-      const formattedOrders: Order[] = (data || []).map(order => ({
-        id: order.id,
-        date: order.created_at,
-        total: order.total_amount,
-        status: order.status,
-        paymentIntentId: order.payment_intent_id,
-        items: order.order_items.map((item: any) => ({
-          id: item.id,
-          title: item.product.title,
-          price: item.price,
-          quantity: item.quantity,
-          merchant: item.product.merchant.business_name,
-          merchantId: item.product.merchant_id,
-          productId: item.product_id,
-        })),
-      }));
-      
+      if (error) {
+        // If supabase returns a schema/relationship error (common when migrations differ),
+        // treat as empty order history rather than a fatal error to avoid alarming users.
+        const errCode = (error && (error.code || error.message)) || '';
+        if (error.code === 'PGRST200' || (typeof errCode === 'string' && errCode.includes('relationship'))) {
+          console.warn('Order relationship not found - treating as empty order history:', error);
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
+
+      const formattedOrders: Order[] = (data || []).map((order: any) => {
+        const items = Array.isArray(order.order_items) ? order.order_items : [];
+        return {
+          id: order.id,
+          date: order.created_at,
+          total: order.total_amount,
+          status: order.status,
+          paymentIntentId: order.payment_intent_id,
+          items: items.map((item: any) => ({
+            id: item.id,
+            title: (item.product && (item.product.title || item.product_name)) || 'Unknown product',
+            price: item.price || 0,
+            quantity: item.quantity || 0,
+            merchant: (item.product && item.product.merchant && (item.product.merchant.business_name || item.product.merchant_name)) || item.merchant || 'Unknown merchant',
+            merchantId: item.product ? (item.product.merchant_id || item.product.seller_id) : item.merchant_id,
+            productId: item.product_id || item.product?.id,
+          })),
+        } as Order;
+      });
+
       setOrders(formattedOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
-      Alert.alert('Error', 'Failed to load order history');
+      // Only surface unexpected errors to the user. Missing data or schema issues are treated as empty state.
+      if (!(error && error.code === 'PGRST200')) {
+        Alert.alert('Error', 'Failed to load order history');
+      }
     } finally {
       setLoading(false);
     }
@@ -117,37 +127,35 @@ const ShoppingCartContainer: React.FC = () => {
   // Subscribe to realtime updates
   useOrderRealtime(onOrderCreated, onOrderUpdated);
 
-  // Business logic: Calculate cart totals
-  const cartTotal = React.useMemo(() => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  }, [cartItems]);
-  
-  const cartItemCount = React.useMemo(() => {
-    return cartItems.reduce((count, item) => count + item.quantity, 0);
-  }, [cartItems]);
-  
-  // Business logic: Update item quantity
-  const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      setCartItems(items => items.filter(item => item.id !== itemId));
-    } else {
-      setCartItems(items => 
-        items.map(item => 
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+  // Note: cartTotal/cartItemCount derived above from global cart
+
+  // Business logic: Update item quantity using global cart API
+  const updateQuantity = useCallback(async (itemId: string, newQuantity: number) => {
+    try {
+      if (newQuantity <= 0) {
+        await removeFromCart(itemId);
+      } else {
+        await updateCartItem(itemId, { quantity: newQuantity });
+      }
+      // refresh local view
+      await refreshCart();
+    } catch (err) {
+      console.error('Failed to update quantity:', err);
+      Alert.alert('Error', 'Failed to update item quantity');
     }
-    
-    // Persist to storage/database
-    // TODO: Implement cart persistence
-  }, []);
-  
+  }, [removeFromCart, updateCartItem, refreshCart]);
+
   // Business logic: Remove item from cart
-  const removeItem = useCallback((itemId: string) => {
-    setCartItems(items => items.filter(item => item.id !== itemId));
-    // TODO: Persist to storage/database
-  }, []);
-  
+  const removeItem = useCallback(async (itemId: string) => {
+    try {
+      await removeFromCart(itemId);
+      await refreshCart();
+    } catch (err) {
+      console.error('Failed to remove item:', err);
+      Alert.alert('Error', 'Failed to remove item from cart');
+    }
+  }, [removeFromCart, refreshCart]);
+
   // Business logic: Clear entire cart
   const clearCart = useCallback(() => {
     Alert.alert(
@@ -155,43 +163,52 @@ const ShoppingCartContainer: React.FC = () => {
       'Are you sure you want to remove all items from your cart?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Clear', 
+        {
+          text: 'Clear',
           style: 'destructive',
-          onPress: () => {
-            setCartItems([]);
-            // TODO: Persist to storage/database
+          onPress: async () => {
+            try {
+              await clearGlobalCart();
+              await refreshCart();
+            } catch (err) {
+              console.error('Failed to clear cart:', err);
+              Alert.alert('Error', 'Failed to clear cart');
+            }
           }
         },
       ]
     );
-  }, []);
-  
+  }, [clearGlobalCart, refreshCart]);
+
   // Business logic: Process checkout
   const handleCheckout = useCallback(async () => {
     if (cartItems.length === 0) {
       Alert.alert('Empty Cart', 'Add items to your cart before checking out');
       return;
     }
-    
+
     setCheckoutLoading(true);
     try {
       const totalCents = Math.round(cartTotal * 100);
-      const paymentIntentId = await expressCheckout(totalCents, 'Cart checkout');
-      
+      const paymentResult = await expressCheckout(totalCents, 'Cart checkout');
+
+      if (!paymentResult || !paymentResult.success || !paymentResult.paymentIntentId) {
+        throw new Error('Payment failed or did not complete');
+      }
+
       // Create order in database
       const { data: orderData, error: orderError } = await supabase
         .from('pg_orders')
         .insert({
           total_amount: cartTotal,
           status: 'completed',
-          payment_intent_id: paymentIntentId,
+          payment_intent_id: paymentResult.paymentIntentId,
         })
         .select()
         .single();
-      
+
       if (orderError) throw orderError;
-      
+
       // Create order items
       const orderItems = cartItems.map(item => ({
         order_id: orderData.id,
@@ -199,31 +216,32 @@ const ShoppingCartContainer: React.FC = () => {
         quantity: item.quantity,
         price: item.price,
       }));
-      
+
       const { error: itemsError } = await supabase
         .from('pg_order_items')
         .insert(orderItems);
-      
+
       if (itemsError) throw itemsError;
-      
-      // Clear cart after successful payment
-      setCartItems([]);
-      
+
+      // Clear cart after successful payment — ensure global cart cleared
+      await clearGlobalCart();
+      await refreshCart();
+
       // Refresh orders
       await loadOrders();
-      
+
       // Switch to orders tab to show completed order
       setActiveTab('orders');
-      
+
       Alert.alert('Success', 'Your order has been completed!');
-      
+
     } catch (error) {
       console.error('Checkout failed:', error);
       Alert.alert('Checkout Failed', 'Please try again or contact support');
     } finally {
       setCheckoutLoading(false);
     }
-  }, [cartItems, cartTotal, expressCheckout, loadOrders]);
+  }, [cartItems, cartTotal, expressCheckout, loadOrders, clearGlobalCart, refreshCart]);
   
   // Business logic: Group cart items by merchant
   const groupedCartItems = React.useMemo(() => {
@@ -248,24 +266,66 @@ const ShoppingCartContainer: React.FC = () => {
     if (tab === 'orders') {
       // clear notification when user views orders
       setHasNewOrders(false);
+      // fetch orders when user opens orders tab
+      loadOrders().catch(() => {});
     }
   };
 
   const handleRefreshOrders = () => {
     loadOrders();
   };
-  
+
   const handleViewOrderDetails = (orderId: string) => {
     // Navigate to order details screen
     console.log('View order details:', orderId);
   };
-  
+
   // Effects
   useEffect(() => {
-    loadCartItems();
-    loadOrders();
-  }, [loadCartItems, loadOrders]);
+    // Ensure cart is loaded from global source
+    refreshCart().catch(() => {});
+    // Only load orders on mount if the orders tab is active
+    if (activeTab === 'orders') {
+      loadOrders().catch(() => {});
+    }
+  }, [loadOrders, activeTab, refreshCart]);
+
+  // Ensure the default visible pill is the Cart when screen gains focus
+  useFocusEffect(
+    React.useCallback(() => {
+      setActiveTab('cart');
+      // Ensure latest cart data is loaded whenever the ShoppingCart screen gains focus
+      (async () => {
+        try {
+          await refreshCart();
+        } catch (err) {
+          console.warn('Failed to refresh cart on focus', err);
+        }
+      })();
+      return () => {};
+    }, [refreshCart])
+  );
   
+  // Helper navigation actions
+  const onNavigateToOrders = () => {
+    try {
+      navigation.navigate('DiscoveryTab');
+    } catch (err) {
+      console.warn('Failed to navigate to DiscoveryTab, falling back to root DiscoveryListing', err);
+      try { navigation.navigate('DiscoveryListing'); } catch (_) {}
+    }
+  };
+
+  const onNavigateToProduct = (productId: string) => {
+    try {
+      // Navigate to discovery listing and pass productId for selection
+      navigation.navigate('DiscoveryTab', { screen: 'DiscoveryListing', params: { productId } });
+    } catch (err) {
+      console.warn('Failed to navigate to product via tab navigator, falling back to DiscoveryListing', err);
+      try { navigation.navigate('DiscoveryListing', { productId }); } catch (_) {}
+    }
+  };
+
   // Props for dumb component
   const shoppingCartProps: ShoppingCartScreenProps = {
     // View state
@@ -290,9 +350,16 @@ const ShoppingCartContainer: React.FC = () => {
     onCheckout: handleCheckout,
     // New prop expected by UI components to navigate to the Checkout screen
     onNavigateToCheckout: () => {
-      console.log('Navigate to Checkout (container fallback)');
-      handleCheckout();
+      // Prefer navigation when available
+      try {
+        navigation.navigate('Checkout');
+      } catch (e) {
+        // fallback to direct handler
+        handleCheckout();
+      }
     },
+    onNavigateToOrders,
+    onNavigateToProduct,
     onRefreshOrders: handleRefreshOrders,
     onViewOrderDetails: handleViewOrderDetails,
     // Notification flag for UI

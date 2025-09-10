@@ -10,12 +10,11 @@ import { appTheme } from '../features/theme';
 import DiscoveryListingContainer from '../features/discovery-listing/containers/DiscoveryListingContainer';
 import IntegratedCheckoutFlow from '../features/payment-processing/components/IntegratedCheckoutFlow';
 import MessagingContainer from '../features/messaging/containers/MessagingContainer';
-import { ShoppingCartScreen } from '../features/shopping-cart';
+import ShoppingCartContainer from '../features/shopping-cart/containers/ShoppingCartContainer';
 
 // Import existing components (would be created/imported from features)
 import ProfileManagementContainer from '../features/profile-management/containers/ProfileManagementContainer';
 import StorefrontContainer from '../features/storefront/containers/StorefrontContainer';
-import EventsManagementScreen from '../features/events-management/screens/EventsManagementScreen';
 import ReferralSystemScreen from '../features/referral-system/screens/ReferralSystemScreen';
 
 const Tab = createBottomTabNavigator();
@@ -53,16 +52,11 @@ const DiscoveryStack = () => {
 const CommerceStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen 
-        name="ShoppingCart" 
+      <Stack.Screen
+        name="ShoppingCart"
+        component={ShoppingCartContainer}
         options={{ title: 'Shopping Cart' }}
-      >
-        {({ navigation }) => (
-          <ShoppingCartScreen 
-            onNavigateToCheckout={() => navigation.navigate('Checkout')}
-          />
-        )}
-      </Stack.Screen>
+      />
       <Stack.Screen 
         name="Checkout" 
         component={IntegratedCheckoutFlow}
@@ -174,7 +168,7 @@ const MainTabNavigator = () => {
         name="CommerceTab"
         component={CommerceStack}
         options={{
-          title: 'Cart',
+          title: 'Shopping',
           tabBarBadge: cartBadge > 0 ? cartBadge : undefined,
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🛒</Text>

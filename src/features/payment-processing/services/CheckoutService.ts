@@ -34,20 +34,31 @@ export class CheckoutService {
   private async expressCheckout(options: CheckoutOptions): Promise<PaymentResult> {
     // Get default payment method
     const defaultMethod = await this.paymentService.getDefaultPaymentMethod();
-    
+
     if (!defaultMethod) {
       throw this.createError('No default payment method available', 'validation');
     }
 
     // Create payment intent with default method
-    const paymentIntentId = await this.paymentService.createPaymentIntent({
+    const intent = await this.paymentService.createPaymentIntent({
       ...options,
       paymentMethodId: defaultMethod.stripe_payment_method_id
     });
 
+    if (intent.status && intent.status !== 'succeeded') {
+      return {
+        success: false,
+        paymentIntentId: intent.paymentIntentId,
+        status: intent.status,
+        error: `Payment not completed. Status: ${intent.status}`,
+      };
+    }
+
     return {
       success: true,
-      paymentIntentId
+      paymentIntentId: intent.paymentIntentId,
+      clientSecret: intent.clientSecret,
+      status: intent.status,
     };
   }
 
@@ -63,17 +74,31 @@ export class CheckoutService {
     }
 
     // Create payment intent with selected method
-    const paymentIntentId = await this.paymentService.createPaymentIntent(options);
+    const intent = await this.paymentService.createPaymentIntent(options);
 
+    // If the edge function confirmed the payment and returned status, validate it
+    if (intent.status && intent.status !== 'succeeded') {
+      return {
+        success: false,
+        paymentIntentId: intent.paymentIntentId,
+        status: intent.status,
+        error: `Payment not completed. Status: ${intent.status}`,
+      };
+    }
+
+    // If no status was provided by the edge function, assume server attempted confirmation.
+    // To be safe, require that client verifies transactions via transactions endpoint (fetchTransactions)
     return {
       success: true,
-      paymentIntentId
+      paymentIntentId: intent.paymentIntentId,
+      clientSecret: intent.clientSecret,
+      status: intent.status,
     };
   }
 
   private async oneTimeCheckout(options: CheckoutOptions): Promise<PaymentResult> {
     // Create payment intent without saved method (triggers payment sheet)
-    const paymentIntentId = await this.paymentService.createPaymentIntent({
+    const intent = await this.paymentService.createPaymentIntent({
       amount: options.amount,
       description: options.description
       // No paymentMethodId - will use payment sheet
@@ -81,9 +106,13 @@ export class CheckoutService {
 
     // Initialize and present payment sheet
     const { initPaymentSheet, presentPaymentSheet } = this.stripe;
-    
+
     // Get client secret for payment sheet
-    const clientSecret = await this.getClientSecret(paymentIntentId);
+    const clientSecret = intent.clientSecret;
+
+    if (!clientSecret) {
+      throw this.createError('Missing client secret for payment sheet', 'stripe');
+    }
 
     const { error: initError } = await initPaymentSheet({
       merchantDisplayName: 'Payment Agent',
@@ -102,18 +131,19 @@ export class CheckoutService {
       throw this.createError(`Payment cancelled or failed: ${presentError.message}`, 'stripe');
     }
 
+    // After presenting the payment sheet, the payment should be processed by Stripe.
+    // However, the server is the source of truth for transaction recording. The caller
+    // should refresh transactions via the payment hook's fetchTransactions after a
+    // successful result to ensure Stripe recorded the payment.
     return {
       success: true,
-      paymentIntentId
+      paymentIntentId: intent.paymentIntentId,
+      clientSecret: intent.clientSecret,
+      status: intent.status,
     };
   }
 
-  private async getClientSecret(paymentIntentId: string): Promise<string> {
-    // This would typically be retrieved from your backend
-    // For now, we'll assume it's included in the payment intent creation response
-    // In a real implementation, you'd fetch this separately
-    return `pi_${paymentIntentId}_secret_placeholder`;
-  }
+
 
   private createError(message: string, type: PaymentError['type']): PaymentError {
     const error = new Error(message) as PaymentError;

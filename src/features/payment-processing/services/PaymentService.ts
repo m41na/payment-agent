@@ -150,7 +150,7 @@ export class PaymentService {
   }
 
   // Payment Processing
-  async createPaymentIntent(options: CheckoutOptions): Promise<string> {
+  async createPaymentIntent(options: CheckoutOptions): Promise<{ paymentIntentId: string; clientSecret?: string; status?: string }> {
     try {
       const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/pg_create-payment-intent`, {
         method: 'POST',
@@ -170,13 +170,17 @@ export class PaymentService {
         throw this.createPaymentError(errorData.error || 'Failed to create payment intent', 'stripe');
       }
 
-      const { paymentIntentId } = await response.json();
-      
+      const { paymentIntentId, clientSecret, status } = await response.json();
+
+      // Return status if provided by the edge function
+
       if (!paymentIntentId) {
         throw this.createPaymentError('No payment intent ID received', 'stripe');
       }
 
-      return paymentIntentId;
+      // Attempt to fetch intent status from Stripe via edge function if available
+      // Some edge functions may return status; if not, leave undefined
+      return { paymentIntentId, id: paymentIntentId, clientSecret, status };
     } catch (error) {
       throw this.handleError(error, 'Failed to create payment intent');
     }

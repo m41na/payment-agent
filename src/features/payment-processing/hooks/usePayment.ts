@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
+import { supabase } from '../../../services/supabase';
 import { useAuth } from '../../user-auth/context/AuthContext';
 import { PaymentService } from '../services/PaymentService';
 import { CheckoutService } from '../services/CheckoutService';
@@ -239,13 +240,26 @@ export const usePayment = () => {
     setDefaultPaymentMethod,
     fetchPaymentMethods,
     fetchTransactions,
-    
+
     // Checkout
     expressCheckout,
     selectiveCheckout,
     oneTimeCheckout,
     processCheckout,
-    
+
+    // Low-level intent creation (used by some checkout flows)
+    createPaymentIntent: async (options: any) => {
+      if (!paymentService) throw new Error('Payment service not available');
+      const payload = {
+        amount: options.amount,
+        description: options.description || options.metadata?.description,
+        paymentMethodId: options.paymentMethodId || options.payment_method_id || options.payment_methodId,
+        currency: options.currency,
+        idempotencyKey: options.idempotencyKey || options.idempotency_key,
+      };
+      return paymentService.createPaymentIntent(payload);
+    },
+
     // Utils
     clearError: () => setError(null),
   };

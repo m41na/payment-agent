@@ -22,6 +22,8 @@ export interface Transaction {
 export interface PaymentResult {
   success: boolean;
   paymentIntentId?: string;
+  clientSecret?: string;
+  status?: string;
   error?: string;
 }
 
