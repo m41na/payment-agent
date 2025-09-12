@@ -7,6 +7,7 @@ import { useAuth } from '../../../features/user-auth/context/AuthContext';
 import { supabase } from '../../../services/supabase';
 import { Event } from '../../events-management/types';
 import StorefrontScreen from '../components/StorefrontScreen';
+import PrimaryButton from '../../shared/PrimaryButton';
 import { useFocusEffect } from '@react-navigation/native';
 import MerchantPlanPurchaseModal from '../../merchant-onboarding/components/MerchantPlanPurchaseModal';
 import MerchantOnboardingContainer from '../../merchant-onboarding/containers/MerchantOnboardingContainer';
@@ -458,11 +459,25 @@ const StorefrontContainer: React.FC = () => {
       {!isStripeOnboarded ? (
         // Gate: show onboarding flow / modal until Stripe Connect onboarding complete
         <>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
             <Text style={{ fontSize: 16, color: '#666', padding: 16, textAlign: 'center' }}>
               To access your Storefront you must complete merchant onboarding.
               Tap the button below to get started.
             </Text>
+
+            <PrimaryButton onPress={async () => {
+              try {
+                await subscription.refreshPlans();
+                const plans = subscription.subscriptionPlans || [];
+                setSelectedPlan(plans[0] || null);
+                setShowPlanModal(true);
+              } catch (err) {
+                console.error('Failed to load plans:', err);
+                Alert.alert('Error', 'Unable to load plans. Please try again later.');
+              }
+            }} style={{ marginTop: 12 }}>
+              Get started
+            </PrimaryButton>
           </View>
 
           <MerchantPlanPurchaseModal

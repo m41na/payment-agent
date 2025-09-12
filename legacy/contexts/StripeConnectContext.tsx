@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Linking } from 'react-native';
-import { supabase } from '../../services/supabase';
+import { supabase } from '../../src/services/supabase';
 import { useAuth } from './AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
 

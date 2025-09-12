@@ -18,6 +18,8 @@ import { paperTheme } from './src/features/theme';
 const AuthenticatedApp = () => {
   const { user, loading } = useAuth();
 
+  console.log('Auth gate state', { loading, user });
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: paperTheme.colors.primary }}>

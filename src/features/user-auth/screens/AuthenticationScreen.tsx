@@ -15,6 +15,7 @@ import { appTheme } from '../../theme';
 import { useAuth } from '../context/AuthContext';
 
 const AuthenticationScreen: React.FC = () => {
+  console.log('Rendering AuthenticationScreen');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);

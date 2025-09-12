@@ -9,6 +9,7 @@ import {
   MerchantOnboardingError,
 } from '../types';
 import { useAuth } from '../../user-auth/context/AuthContext';
+import { supabase } from '../../../services/supabase';
 
 const stripeConnectService = new StripeConnectService();
 
@@ -41,6 +42,35 @@ export const useStripeConnect = () => {
   useEffect(() => {
     fetchAccount();
   }, [fetchAccount]);
+
+  // Realtime subscription to account updates (keeps UI in sync with DB updates)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('public:pg_stripe_connect_accounts')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'pg_stripe_connect_accounts',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        // When account row updates, refetch local account
+        fetchAccount();
+      })
+      .subscribe((status) => {
+        // Subscription lifecycle events are logged for debugging
+        console.log('StripeConnect realtime subscription status:', status);
+      });
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('Failed to remove StripeConnect realtime channel', err);
+      }
+    };
+  }, [user, fetchAccount]);
 
   const createConnectAccount = useCallback(async (request: CreateAccountRequest = {}) => {
     if (!user) throw new Error('User not authenticated');
@@ -145,13 +175,13 @@ export const useStripeConnect = () => {
 
   const refreshAccountStatus = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const result = await stripeConnectService.refreshAccountStatus(user.id);
-      
+
       if (result.success) {
         // Refresh local account state from database
         await fetchAccount();
@@ -165,6 +195,9 @@ export const useStripeConnect = () => {
       setLoading(false);
     }
   }, [user, fetchAccount]);
+
+  // Keep account state in sync with database updates triggered by webhooks or edge functions
+  // This complements the above realtime subscription and ensures the UI reflects latest Stripe state.
 
   // Computed values using service methods
   const capabilities: MerchantCapabilities = {

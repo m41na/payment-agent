@@ -6,13 +6,17 @@ import { appTheme } from '../theme';
 type Props = React.ComponentProps<typeof Button> & { fullWidth?: boolean };
 
 const PrimaryButton: React.FC<Props> = ({ children, style, fullWidth, ...rest }) => {
+  const mode = (rest as any).mode || 'contained';
+  const buttonColor = mode === 'contained' ? appTheme.colors.primary : undefined;
+  const textColor = mode === 'contained' ? appTheme.colors.surface : appTheme.colors.primary;
+
   return (
     <Button
-      mode="contained"
+      mode={mode}
       style={[styles.button, fullWidth && styles.fullWidth, style]}
       labelStyle={styles.label}
-      buttonColor={appTheme.colors.primary}
-      textColor={appTheme.colors.surface}
+      buttonColor={buttonColor}
+      textColor={textColor}
       {...rest}
     >
       {children}

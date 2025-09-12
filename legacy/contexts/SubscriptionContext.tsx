@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../services/supabase';
+import { supabase } from '../../src/services/supabase';
 import { useAuth } from './AuthContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import { usePayment } from './PaymentContext';

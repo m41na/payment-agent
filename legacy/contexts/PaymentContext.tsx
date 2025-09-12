@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useStripe } from '@stripe/stripe-react-native';
-import { supabase } from '../services/supabase';
+import { supabase } from '../../src/services/supabase';
 import { useAuth } from './AuthContext';
 
 interface PaymentMethod {
@@ -88,7 +88,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { data, error } = await supabase
         .from('pg_transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('buyer_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -453,46 +453,124 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!user) return;
 
-    // Set up real-time subscription for payment methods
-    const paymentMethodsSubscription = supabase
-      .channel('pg_payment_methods_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pg_payment_methods',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Payment method change detected:', payload);
-          fetchPaymentMethods(); // Refresh payment methods
-        }
-      )
-      .subscribe();
+    let paymentMethodsChannel: any;
+    let transactionsChannel: any;
 
-    // Set up real-time subscription for transactions
-    const transactionsSubscription = supabase
-      .channel('pg_transactions_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pg_transactions',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Transaction change detected:', payload);
-          fetchTransactions(); // Refresh transactions
-        }
-      )
-      .subscribe();
+    const setupSubscriptions = async () => {
+      try {
+        // Set up real-time subscription for payment methods
+        paymentMethodsChannel = supabase
+          .channel(`pg_payment_methods_${user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'pg_payment_methods',
+              filter: `user_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('Payment method inserted:', payload.new);
+              setPaymentMethods(prev => [payload.new as PaymentMethod, ...prev]);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'pg_payment_methods',
+              filter: `user_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('Payment method updated:', payload.new);
+              setPaymentMethods(prev => 
+                prev.map(pm => pm.id === payload.new.id ? payload.new as PaymentMethod : pm)
+              );
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'DELETE',
+              schema: 'public',
+              table: 'pg_payment_methods',
+              filter: `user_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('Payment method deleted:', payload.old);
+              setPaymentMethods(prev => prev.filter(pm => pm.id !== payload.old.id));
+            }
+          )
+          .subscribe((status) => {
+            console.log('Payment methods subscription status:', status);
+            if (status === 'SUBSCRIPTION_ERROR') {
+              console.error('Failed to subscribe to payment methods changes');
+              // Fallback to periodic refresh
+              setTimeout(() => fetchPaymentMethods(), 1000);
+            }
+          });
+
+        // Set up real-time subscription for transactions
+        transactionsChannel = supabase
+          .channel(`pg_transactions_${user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'pg_transactions',
+              filter: `buyer_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('Transaction inserted:', payload.new);
+              setTransactions(prev => [payload.new as Transaction, ...prev]);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'pg_transactions',
+              filter: `buyer_id=eq.${user.id}`
+            },
+            (payload) => {
+              console.log('Transaction updated:', payload.new);
+              setTransactions(prev => 
+                prev.map(tx => tx.id === payload.new.id ? payload.new as Transaction : tx)
+              );
+            }
+          )
+          .subscribe((status) => {
+            console.log('Transactions subscription status:', status);
+            if (status === 'SUBSCRIPTION_ERROR') {
+              console.error('Failed to subscribe to transactions changes');
+              // Fallback to periodic refresh
+              setTimeout(() => fetchTransactions(), 1000);
+            }
+          });
+
+      } catch (error) {
+        console.error('Error setting up real-time subscriptions:', error);
+        // Fallback to periodic refresh
+        setTimeout(() => {
+          fetchPaymentMethods();
+          fetchTransactions();
+        }, 1000);
+      }
+    };
+
+    setupSubscriptions();
 
     // Cleanup subscriptions
     return () => {
-      paymentMethodsSubscription.unsubscribe();
-      transactionsSubscription.unsubscribe();
+      if (paymentMethodsChannel) {
+        paymentMethodsChannel.unsubscribe();
+      }
+      if (transactionsChannel) {
+        transactionsChannel.unsubscribe();
+      }
     };
   }, [user]);
 

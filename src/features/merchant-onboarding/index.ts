@@ -11,6 +11,10 @@ export { useMerchantOnboarding } from './hooks/useMerchantOnboarding';
 export { useStripeConnect } from './hooks/useStripeConnect';
 export { useOnboardingFlow } from './hooks/useOnboardingFlow';
 
+// Compatibility contexts (port of legacy context API into the feature)
+export { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
+export { StripeConnectProvider, useStripeConnect as useStripeConnectContext } from './contexts/StripeConnectContext';
+
 // Services - Business logic layer (for advanced usage)
 export { StripeConnectService } from './services/StripeConnectService';
 export { OnboardingFlowService } from './services/OnboardingFlowService';

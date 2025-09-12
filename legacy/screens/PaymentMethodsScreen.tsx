@@ -4,7 +4,7 @@ import { Button, Card, Title, Text, IconButton, FAB, Portal, Dialog, Paragraph }
 import { usePayment } from '../contexts/PaymentContext';
 import { useNavigation } from '@react-navigation/native';
 import { useStripe } from '@stripe/stripe-react-native';
-import { supabase } from '../../services/supabase';
+import { supabase } from '../../src/services/supabase';
 
 const PaymentMethodsScreen = () => {
   const navigation = useNavigation();

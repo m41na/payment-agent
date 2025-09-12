@@ -17,7 +17,13 @@ export const MerchantOnboardingProvider: React.FC<ProviderProps> = ({ children }
 
   return (
     <MerchantOnboardingContext.Provider value={merchantOnboardingContext}>
-      {children}
+      {/* Provide feature-scoped compatibility contexts so legacy-ported components
+          can still consume subscription and stripe connect contexts from the feature.
+      */}
+      <React.Suspense fallback={children}>
+        {/* Dynamically import to avoid circular imports at module load time */}
+        <FeatureCompatibilityProviders>{children}</FeatureCompatibilityProviders>
+      </React.Suspense>
     </MerchantOnboardingContext.Provider>
   );
 };
@@ -25,6 +31,21 @@ export const MerchantOnboardingProvider: React.FC<ProviderProps> = ({ children }
 /**
  * Hook to access Merchant Onboarding context
  */
+// Feature compatibility wrapper to provide feature-scoped contexts
+const FeatureCompatibilityProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Import providers lazily to prevent circular dependency issues
+  const { SubscriptionProvider } = require('../features/merchant-onboarding/contexts/SubscriptionContext');
+  const { StripeConnectProvider } = require('../features/merchant-onboarding/contexts/StripeConnectContext');
+
+  return (
+    <SubscriptionProvider>
+      <StripeConnectProvider>
+        {children}
+      </StripeConnectProvider>
+    </SubscriptionProvider>
+  );
+};
+
 export const useMerchantOnboardingContext = (): MerchantOnboardingContextType => {
   const context = useContext(MerchantOnboardingContext);
   if (!context) {
